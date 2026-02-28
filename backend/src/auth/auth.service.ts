@@ -44,8 +44,6 @@ export class AuthService {
                 },
             };
         } catch (error: unknown) {
-            console.error('LOGIN ERROR:', error);
-
             // Unauthorized tetap dilempar agar status 401
             if (error instanceof UnauthorizedException) throw error;
 
@@ -63,9 +61,9 @@ export class AuthService {
             if (error instanceof Error) {
                 // Prisma / bcrypt / runtime errors
                 return {
-                success: false,
-                message: 'Login failed',
-                error: error.message,
+                    success: false,
+                    message: 'Login failed',
+                    error: error.message,
                 };
             }
 

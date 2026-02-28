@@ -29,8 +29,8 @@ async function main() {
   console.log('✔ Roles seeded');
 
   // PERMISSIONS
-  const resources = ['users', 'vehicles', 'drivers', 'orders', 'shuttles', 'trip_sheets'];
-  const actions = ['create', 'read', 'update', 'delete'];
+  const resources = ['user', 'role', 'vehicle', 'vehicle-service', 'driver', 'route', 'contract', 'order', 'shuttle', 'trip_sheet'];
+  const actions = ['create', 'read', 'update', 'delete', 'detail'];
 
   const permissions:Permission[] = [];
   for (const resource of resources) {
@@ -64,7 +64,7 @@ async function main() {
     create: {
       email: 'superadmin@example.com',
       username: 'superadmin',
-      password: hash('SuperAdmin123!'),
+      password: hash('superadmin123'),
       role_id: superAdminRole.id,
       status: Status.ACTIVE,
     },
@@ -76,7 +76,7 @@ async function main() {
     create: {
       email: 'admin@example.com',
       username: 'admin',
-      password: hash('Admin123!'),
+      password: hash('admin123'),
       role_id: adminRole.id,
       status: Status.ACTIVE,
     },
@@ -88,7 +88,7 @@ async function main() {
     create: {
       email: 'operator@example.com',
       username: 'operator',
-      password: hash('Operator123!'),
+      password: hash('operator123'),
       role_id: operatorRole.id,
       status: Status.ACTIVE,
     },
