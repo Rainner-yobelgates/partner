@@ -1,0 +1,485 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+  engineType      = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- ENUMS ----------
+enum Status {
+  ACTIVE
+  INACTIVE
+  DELETED
+}
+
+enum VehicleType {
+  EVALIA
+  MEDIUM_BUS
+  HIACE
+}
+
+enum DriverType {
+  ASSISTANT
+  RESERVE
+  MAIN
+}
+
+enum ServiceType {
+  MAINTENANCE
+  REPAIR
+  OIL_CHANGE
+  INSPECTION
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+// ================= USER =================
+model User {
+  id         BigInt @id @default(autoincrement())
+  users_uuid String @unique @default(uuid())
+  role_id    BigInt?
+  email      String @unique
+  password   String
+  username   String @unique
+  status     Status?
+
+  created_by BigInt?
+  updated_by BigInt?
+  deleted_by BigInt?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  role Role? @relation(fields: [role_id], references: [id])
+
+  // ==== AUDIT RELATIONS (INVERSE) ====
+  created_roles        Role[] @relation("role_created_by")
+  updated_roles        Role[] @relation("role_updated_by")
+  deleted_roles        Role[] @relation("role_deleted_by")
+
+  created_permissions  Permission[] @relation("permission_created_by")
+  updated_permissions  Permission[] @relation("permission_updated_by")
+  deleted_permissions  Permission[] @relation("permission_deleted_by")
+
+  created_role_permissions RolePermission[] @relation("role_permission_created_by")
+  updated_role_permissions RolePermission[] @relation("role_permission_updated_by")
+  deleted_role_permissions RolePermission[] @relation("role_permission_deleted_by")
+
+  created_vehicles     Vehicle[] @relation("vehicle_created_by")
+  updated_vehicles     Vehicle[] @relation("vehicle_updated_by")
+  deleted_vehicles     Vehicle[] @relation("vehicle_deleted_by")
+
+  created_drivers      Driver[] @relation("driver_created_by")
+  updated_drivers      Driver[] @relation("driver_updated_by")
+  deleted_drivers      Driver[] @relation("driver_deleted_by")
+
+  created_vehicle_services VehicleService[] @relation("vehicle_service_created_by")
+  updated_vehicle_services VehicleService[] @relation("vehicle_service_updated_by")
+  deleted_vehicle_services VehicleService[] @relation("vehicle_service_deleted_by")
+
+  created_routes       Route[] @relation("route_created_by")
+  updated_routes       Route[] @relation("route_updated_by")
+  deleted_routes       Route[] @relation("route_deleted_by")
+
+  created_contracts    Contract[] @relation("contract_created_by")
+  updated_contracts    Contract[] @relation("contract_updated_by")
+  deleted_contracts    Contract[] @relation("contract_deleted_by")
+
+  created_contract_invoices ContractInvoice[] @relation("contract_invoice_created_by")
+  updated_contract_invoices ContractInvoice[] @relation("contract_invoice_updated_by")
+  deleted_contract_invoices ContractInvoice[] @relation("contract_invoice_deleted_by")
+
+  created_shuttles     Shuttle[] @relation("shuttle_created_by")
+  updated_shuttles     Shuttle[] @relation("shuttle_updated_by")
+  deleted_shuttles     Shuttle[] @relation("shuttle_deleted_by")
+
+  created_orders       Order[] @relation("order_created_by")
+  updated_orders       Order[] @relation("order_updated_by")
+  deleted_orders       Order[] @relation("order_deleted_by")
+
+  created_order_vehicles OrderVehicle[] @relation("order_vehicle_created_by")
+  updated_order_vehicles OrderVehicle[] @relation("order_vehicle_updated_by")
+  deleted_order_vehicles OrderVehicle[] @relation("order_vehicle_deleted_by")
+
+  created_trip_sheets  TripSheet[] @relation("trip_sheet_created_by")
+  updated_trip_sheets  TripSheet[] @relation("trip_sheet_updated_by")
+  deleted_trip_sheets  TripSheet[] @relation("trip_sheet_deleted_by")
+}
+
+// ================= ROLE =================
+model Role {
+  id          BigInt @id @default(autoincrement())
+  role_uuid   String @unique @default(uuid())
+  name        String @unique
+  description String?
+  status      Status?
+
+  created_by  BigInt?
+  updated_by  BigInt?
+  deleted_by  BigInt?
+  deleted_at  DateTime?
+
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  users User[]
+  rolePermissions RolePermission[]
+
+  createdBy User? @relation("role_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("role_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("role_deleted_by", fields: [deleted_by], references: [id])
+}
+
+// ================= PERMISSION =================
+model Permission {
+  id               BigInt @id @default(autoincrement())
+  permissions_uuid String @unique @default(uuid())
+  resource         String
+  action           String
+  description      String?
+
+  created_by       BigInt?
+  updated_by       BigInt?
+  deleted_by       BigInt?
+  deleted_at       DateTime?
+
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  rolePermissions  RolePermission[]
+
+  createdBy User? @relation("permission_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("permission_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("permission_deleted_by", fields: [deleted_by], references: [id])
+
+  @@unique([resource, action])
+}
+
+// ================= ROLE PERMISSION =================
+model RolePermission {
+  id                     BigInt @id @default(autoincrement())
+  role_permissions_uuid  String @unique @default(uuid())
+
+  role_id       BigInt
+  permission_id BigInt
+
+  created_by BigInt?
+  updated_by BigInt?
+  deleted_by BigInt?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  role       Role       @relation(fields: [role_id], references: [id])
+  permission Permission @relation(fields: [permission_id], references: [id])
+
+  createdBy User? @relation("role_permission_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("role_permission_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("role_permission_deleted_by", fields: [deleted_by], references: [id])
+}
+
+// ================= VEHICLE =================
+model Vehicle {
+  id            BigInt @id @default(autoincrement())
+  vehicles_uuid String @unique @default(uuid())
+  plate_number  String?
+  hull_number   String?
+  vehicle_type  VehicleType?
+  brand         String?
+  model         String?
+  status        Status?
+
+  created_by BigInt?
+  updated_by BigInt?
+  deleted_by BigInt?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  drivers        Driver[]
+  vehicleServices VehicleService[]
+  shuttles       Shuttle[]
+  orderVehicles  OrderVehicle[]
+
+  createdBy User? @relation("vehicle_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("vehicle_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("vehicle_deleted_by", fields: [deleted_by], references: [id])
+}
+
+// ================= DRIVER =================
+model Driver {
+  id                BigInt @id @default(autoincrement())
+  drivers_uuid      String @unique @default(uuid())
+  vehicle_id        BigInt?
+  name              String?
+  phone_number      String?
+  emergency_contact String?
+  address           String?
+  type              DriverType?
+  status            Status?
+
+  created_by BigInt?
+  updated_by BigInt?
+  deleted_by BigInt?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  vehicle Vehicle? @relation(fields: [vehicle_id], references: [id])
+
+  orderVehicles         OrderVehicle[] @relation("DriverAssignment")
+  orderVehiclesAssist   OrderVehicle[] @relation("AssistantDriverAssignment")
+  tripSheetsDriver      TripSheet[]    @relation("TripDriver")
+  tripSheetsAssist      TripSheet[]    @relation("TripAssistant")
+
+  createdBy User? @relation("driver_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("driver_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("driver_deleted_by", fields: [deleted_by], references: [id])
+}
+
+// ================= VEHICLE SERVICE =================
+model VehicleService {
+  id                    BigInt @id @default(autoincrement())
+  vehicle_services_uuid String @unique @default(uuid())
+  vehicle_id            BigInt?
+  service_date          DateTime?
+  service_type          ServiceType?
+  cost                  Decimal?
+  description           String?
+  status                Status?
+
+  created_by BigInt?
+  updated_by BigInt?
+  deleted_by BigInt?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  vehicle Vehicle? @relation(fields: [vehicle_id], references: [id])
+
+  createdBy User? @relation("vehicle_service_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("vehicle_service_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("vehicle_service_deleted_by", fields: [deleted_by], references: [id])
+}
+
+// ================= ROUTE =================
+model Route {
+  id             BigInt @id @default(autoincrement())
+  routes_uuid    String @unique @default(uuid())
+  origin         String?
+  destination    String?
+  distance       Decimal?
+  estimated_time Int?
+  status         Status?
+
+  created_by BigInt?
+  updated_by BigInt?
+  deleted_by BigInt?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  shuttles Shuttle[]
+
+  createdBy User? @relation("route_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("route_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("route_deleted_by", fields: [deleted_by], references: [id])
+}
+
+// ================= CONTRACT =================
+model Contract {
+  id              BigInt @id @default(autoincrement())
+  contracts_uuid  String @unique @default(uuid())
+  contract_number String?
+  contact_person  String?
+  phone_number    String?
+  email           String?
+  address         String?
+  start_date      DateTime?
+  end_date        DateTime?
+  status          Status?
+
+  created_by BigInt?
+  updated_by BigInt?
+  deleted_by BigInt?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  shuttles         Shuttle[]
+  contractInvoices ContractInvoice[]
+
+  createdBy User? @relation("contract_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("contract_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("contract_deleted_by", fields: [deleted_by], references: [id])
+}
+
+// ================= CONTRACT INVOICE =================
+model ContractInvoice {
+  id                     BigInt @id @default(autoincrement())
+  contract_invoices_uuid String @unique @default(uuid())
+  contract_id            BigInt
+  period_month           Int?
+  period_year            Int?
+  gross_amount           Decimal?
+  tax_amount             Decimal?
+  net_amount             Decimal?
+  status                 String?
+
+  created_by BigInt?
+  updated_by BigInt?
+  deleted_by BigInt?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  contract Contract @relation(fields: [contract_id], references: [id])
+
+  createdBy User? @relation("contract_invoice_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("contract_invoice_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("contract_invoice_deleted_by", fields: [deleted_by], references: [id])
+}
+
+// ================= SHUTTLE =================
+model Shuttle {
+  id             BigInt @id @default(autoincrement())
+  shuttles_uuid  String @unique @default(uuid())
+  contract_id    BigInt?
+  vehicle_id     BigInt?
+  route_id       BigInt?
+
+  crew_incentive Decimal?
+  scheduled_date DateTime?
+  fuel           Decimal?
+  toll_fee       Decimal?
+  lainnya        Decimal?
+  status         Status?
+
+  created_by BigInt?
+  updated_by BigInt?
+  deleted_by BigInt?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  contract Contract? @relation(fields: [contract_id], references: [id])
+  vehicle  Vehicle?  @relation(fields: [vehicle_id], references: [id])
+  route    Route?    @relation(fields: [route_id], references: [id])
+
+  createdBy User? @relation("shuttle_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("shuttle_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("shuttle_deleted_by", fields: [deleted_by], references: [id])
+}
+
+// ================= ORDER =================
+model Order {
+  id               BigInt @id @default(autoincrement())
+  orders_uuid      String @unique @default(uuid())
+  order_number     String @unique
+  customer_name    String?
+  customer_phone   String?
+  customer_email   String?
+  order_date       DateTime?
+  usage_date       DateTime?
+  standby_time     DateTime?
+  pickup_location  String?
+  dropoff_location String?
+  total_vehicles   Int?
+  total_amount     Decimal?
+  status           OrderStatus?
+  notes            String?
+
+  created_by BigInt?
+  updated_by BigInt?
+  deleted_by BigInt?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  orderVehicles OrderVehicle[]
+
+  createdBy User? @relation("order_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("order_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("order_deleted_by", fields: [deleted_by], references: [id])
+}
+
+// ================= ORDER VEHICLE =================
+model OrderVehicle {
+  id                  BigInt @id @default(autoincrement())
+  order_vehicles_uuid String @unique @default(uuid())
+
+  order_id            BigInt?
+  vehicle_id          BigInt?
+  driver_id           BigInt?
+  assistant_driver_id BigInt?
+  status              Status?
+
+  created_by BigInt?
+  updated_by BigInt?
+  deleted_by BigInt?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  order           Order?   @relation(fields: [order_id], references: [id])
+  vehicle         Vehicle? @relation(fields: [vehicle_id], references: [id])
+  driver          Driver?  @relation("DriverAssignment", fields: [driver_id], references: [id])
+  assistantDriver Driver?  @relation("AssistantDriverAssignment", fields: [assistant_driver_id], references: [id])
+  tripSheets      TripSheet[]
+
+  createdBy User? @relation("order_vehicle_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("order_vehicle_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("order_vehicle_deleted_by", fields: [deleted_by], references: [id])
+}
+
+// ================= TRIP SHEET =================
+model TripSheet {
+  id               BigInt @id @default(autoincrement())
+  trip_sheets_uuid String @unique @default(uuid())
+
+  order_vehicle_id BigInt?
+  driver_id        BigInt?
+  assistant_id     BigInt?
+  destination      String?
+  fuel_cost        Decimal?
+  toll_fee         Decimal?
+  parking_fee      Decimal?
+  expense_notes    String?
+  attachment       String?
+  status           Status?
+
+  created_by BigInt?
+  updated_by BigInt?
+  deleted_by BigInt?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  orderVehicle OrderVehicle? @relation(fields: [order_vehicle_id], references: [id])
+  driver       Driver? @relation("TripDriver", fields: [driver_id], references: [id])
+  assistant    Driver? @relation("TripAssistant", fields: [assistant_id], references: [id])
+
+  createdBy User? @relation("trip_sheet_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("trip_sheet_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("trip_sheet_deleted_by", fields: [deleted_by], references: [id])
+}
