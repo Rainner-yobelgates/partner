@@ -222,7 +222,7 @@ async function main() {
       crew_incentive: 150000,
       fuel: 200000,
       toll_fee: 50000,
-      lainnya: 0,
+      others: 0,
       status: Status.ACTIVE,
       created_by: admin.id,
     },

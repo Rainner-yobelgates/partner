@@ -26,4 +26,13 @@ export class AuthController {
   async getProfile(@Req() req) {
     return req.user;
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('permissions')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user permissions (protected)' })
+  @ApiResponse({ status: 200, description: 'Returns permission list for current user role' })
+  async getPermissions(@Req() req) {
+    return this.authService.getMyPermissions(req.user.id);
+  }
 }
