@@ -285,9 +285,9 @@ model Facility {
   facilities_uuid  String   @unique @default(uuid())
 
   name             String   @unique
-  cost             Decimal? @db.Decimal(15, 2)
+  cost             Decimal  @db.Decimal(15, 2)
   description      String?
-  status           Status?
+  status           Status   @default(ACTIVE)
 
   created_by       BigInt?
   updated_by       BigInt?

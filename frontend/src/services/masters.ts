@@ -98,7 +98,7 @@ export type FacilityItem = {
   id: string
   facilities_uuid: string
   name: string
-  cost?: number | null
+  cost: number | null
   description?: string | null
   status?: MasterStatus | null
   created_at: string
@@ -107,7 +107,7 @@ export type FacilityItem = {
 
 export type FacilityPayload = {
   name: string
-  cost?: number
+  cost: number
   description?: string
   status?: MasterStatus
 }

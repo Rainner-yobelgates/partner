@@ -45,7 +45,7 @@ const handleLogin = async () => {
     if (error instanceof ApiError)
       errorMessage.value = error.message
     else
-      errorMessage.value = 'Login gagal. Coba lagi.'
+      errorMessage.value = 'Masuk gagal. Coba lagi.'
   }
   finally {
     isSubmitting.value = false
@@ -64,19 +64,19 @@ const handleLogin = async () => {
           to="/"
           class="d-flex align-center gap-3"
         >
-          <div
+          <!-- <div
             class="d-flex"
             v-html="logo"
-          />
+          /> -->
           <h2 class="font-weight-medium text-2xl text-uppercase">
-            Partner App
+            Partner
           </h2>
         </RouterLink>
       </VCardItem>
 
       <VCardText class="pt-2">
         <h4 class="text-h4 mb-1">
-          Sign in
+          Masuk
         </h4>
         <p class="mb-0">
           Masukkan username dan password untuk masuk.
@@ -123,7 +123,7 @@ const handleLogin = async () => {
                 :disabled="isSubmitting"
                 class="mt-6"
               >
-                Login
+                Masuk
               </VBtn>
             </VCol>
           </VRow>
@@ -153,3 +153,4 @@ const handleLogin = async () => {
 <style lang="scss">
 @use "@core/scss/template/pages/page-auth";
 </style>
+

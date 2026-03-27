@@ -14,33 +14,9 @@ const authStore = useAuthStore()
     }"
   />
   <VerticalNavLink
-    v-if="authStore.hasPermission('role:read')"
-    :item="{
-      title: 'Role',
-      icon: 'ri-shield-user-line',
-      to: '/roles',
-    }"
-  />
-  <VerticalNavLink
-    v-if="authStore.hasPermission('role:update')"
-    :item="{
-      title: 'Role Permission',
-      icon: 'ri-shield-keyhole-line',
-      to: '/role-permissions',
-    }"
-  />
-  <VerticalNavLink
-    v-if="authStore.hasPermission('user:read')"
-    :item="{
-      title: 'User',
-      icon: 'ri-user-3-line',
-      to: '/users',
-    }"
-  />
-  <VerticalNavLink
     v-if="authStore.hasPermission('driver:read')"
     :item="{
-      title: 'Driver',
+      title: 'Pengemudi',
       icon: 'ri-steering-2-line',
       to: '/drivers',
     }"
@@ -48,7 +24,7 @@ const authStore = useAuthStore()
   <VerticalNavLink
     v-if="authStore.hasPermission('vehicle:read')"
     :item="{
-      title: 'Vehicle',
+      title: 'Kendaraan',
       icon: 'ri-bus-line',
       to: '/vehicles',
     }"
@@ -56,7 +32,7 @@ const authStore = useAuthStore()
   <VerticalNavLink
     v-if="authStore.hasPermission('facility:read')"
     :item="{
-      title: 'Facility',
+      title: 'Fasilitas',
       icon: 'ri-building-line',
       to: '/facilities',
     }"
@@ -64,7 +40,7 @@ const authStore = useAuthStore()
   <VerticalNavLink
     v-if="authStore.hasPermission('route:read')"
     :item="{
-      title: 'Route',
+      title: 'Rute',
       icon: 'ri-road-map-line',
       to: '/routes',
     }"
@@ -72,7 +48,7 @@ const authStore = useAuthStore()
   <VerticalNavLink
     v-if="authStore.hasPermission('contract:read')"
     :item="{
-      title: 'Contract',
+      title: 'Kontrak',
       icon: 'ri-file-list-3-line',
       to: '/contracts',
     }"
@@ -80,7 +56,7 @@ const authStore = useAuthStore()
   <VerticalNavLink
     v-if="authStore.hasPermission('shuttle:read')"
     :item="{
-      title: 'Shuttle',
+      title: 'Antar Jemput',
       icon: 'ri-bus-2-line',
       to: '/shuttles',
     }"
@@ -88,9 +64,34 @@ const authStore = useAuthStore()
   <VerticalNavLink
     v-if="authStore.hasPermission('vehicle-service:read')"
     :item="{
-      title: 'Vehicle Service',
+      title: 'Layanan Kendaraan',
       icon: 'ri-tools-line',
       to: '/vehicle-services',
     }"
   />
+  <VerticalNavLink
+    v-if="authStore.hasPermission('user:read')"
+    :item="{
+      title: 'Pengguna',
+      icon: 'ri-user-3-line',
+      to: '/users',
+    }"
+  />
+  <VerticalNavLink
+    v-if="authStore.hasPermission('role:read')"
+    :item="{
+      title: 'Peran',
+      icon: 'ri-shield-user-line',
+      to: '/roles',
+    }"
+  />
+  <VerticalNavLink
+    v-if="authStore.hasPermission('role:update')"
+    :item="{
+      title: 'Hak Akses Peran',
+      icon: 'ri-shield-keyhole-line',
+      to: '/role-permissions',
+    }"
+  />
 </template>
+

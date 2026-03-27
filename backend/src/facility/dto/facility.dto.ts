@@ -4,6 +4,8 @@ import {
   IsOptional,
   IsEnum,
   IsNumberString,
+  IsNumber,
+  IsNotEmpty,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Status } from 'generated/prisma/enums';
@@ -14,15 +16,16 @@ import { Status } from 'generated/prisma/enums';
 export class CreateFacilityDto {
   @ApiProperty({ description: 'Nama fasilitas (harus unik)', example: 'WiFi' })
   @IsString()
+  @IsNotEmpty()
   name!: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Biaya fasilitas dalam rupiah',
     example: 50000.0,
   })
-  @IsOptional()
   @Type(() => Number)
-  cost?: number;
+  @IsNumber()
+  cost!: number;
 
   @ApiPropertyOptional({
     description: 'Deskripsi fasilitas',

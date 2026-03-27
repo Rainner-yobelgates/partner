@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateFacilityDto, QueryFacilityDto, UpdateFacilityDto } from './dto/facility.dto';
 import { CurrentUserType } from 'src/decorator/current-user.decorator';
 import { normalizeUserId } from 'src/utils/normalize-user-id.util';
+import { Status } from 'generated/prisma/enums';
 
 @Injectable()
 export class FacilityService {
@@ -122,14 +123,16 @@ export class FacilityService {
   // ──────────────────────────────────────────
   async create(dto: CreateFacilityDto, user: CurrentUserType) {
     try {
-      // Cek nama duplikat
+      const name = dto.name.trim();
+
+      // Cek nama duplikat (case-sensitive)
       const exists = await this.prisma.db.facility.findFirst({
-        where: { name: dto.name, deleted_at: null },
+        where: { name, deleted_at: null },
       });
       if (exists) {
         throw new ConflictException({
           success: false,
-          message: `Fasilitas dengan nama "${dto.name}" sudah terdaftar`,
+          message: `Fasilitas dengan nama "${name}" sudah terdaftar`,
         });
       }
 
@@ -137,10 +140,10 @@ export class FacilityService {
 
       const facility = await this.prisma.db.facility.create({
         data: {
-          name: dto.name,
+          name,
           cost: dto.cost,
           description: dto.description,
-          status: dto.status,
+          status: dto.status ?? Status.ACTIVE,
           created_by: userId,
         },
       });
@@ -177,10 +180,12 @@ export class FacilityService {
       }
 
       // Cek nama duplikat (kecuali fasilitas ini sendiri)
-      if (dto.name && dto.name !== facility.name) {
+      if (dto.name) {
+        const name = dto.name.trim();
+        if (name !== facility.name) {
         const exists = await this.prisma.db.facility.findFirst({
           where: {
-            name: dto.name,
+            name,
             deleted_at: null,
             NOT: { id: BigInt(id) },
           },
@@ -188,8 +193,9 @@ export class FacilityService {
         if (exists) {
           throw new ConflictException({
             success: false,
-            message: `Fasilitas dengan nama "${dto.name}" sudah terdaftar`,
+            message: `Fasilitas dengan nama "${name}" sudah terdaftar`,
           });
+        }
         }
       }
 
@@ -198,7 +204,7 @@ export class FacilityService {
       const updated = await this.prisma.db.facility.update({
         where: { id: BigInt(id) },
         data: {
-          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.name !== undefined && { name: dto.name.trim() }),
           ...(dto.cost !== undefined && { cost: dto.cost }),
           ...(dto.description !== undefined && { description: dto.description }),
           ...(dto.status !== undefined && { status: dto.status }),
