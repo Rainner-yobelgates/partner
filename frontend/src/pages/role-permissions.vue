@@ -2,11 +2,16 @@
 import { ApiError } from '@/services/http'
 import { roleMasterService, type RoleItem } from '@/services/masters'
 import { rolePermissionService, type RolePermissionItem } from '@/services/role-permission.service'
+import { useAuthStore } from '@/stores/auth'
+import { router } from '@/plugins/router'
 
 const roles = ref<RoleItem[]>([])
 const selectedRoleId = ref('')
 const selectedRoleName = ref('')
 const permissions = ref<RolePermissionItem[]>([])
+const authStore = useAuthStore()
+const canUpdate = computed(() => authStore.hasPermission('role:update'))
+const isCurrentRole = computed(() => authStore.roleId && selectedRoleId.value && authStore.roleId === selectedRoleId.value)
 const isLoadingRoles = ref(false)
 const isLoadingPermissions = ref(false)
 const togglingPermissionMap = ref<Record<string, boolean>>({})
@@ -79,12 +84,13 @@ const fetchRoles = async () => {
       sortOrder: 'asc',
     })
 
-    roles.value = response.data
+    roles.value = response.data.filter(role => role.status === 'ACTIVE')
 
     if (!selectedRoleId.value && roles.value.length > 0)
       selectedRoleId.value = roles.value[0].id
   }
   catch (error) {
+    console.error('[pages/role-permissions.vue]', error)
     showToast(getErrorMessage(error), 'error')
   }
   finally {
@@ -104,6 +110,7 @@ const fetchPermissions = async () => {
     selectedRoleName.value = response.data.role.name
   }
   catch (error) {
+    console.error('[pages/role-permissions.vue]', error)
     showToast(getErrorMessage(error), 'error')
   }
   finally {
@@ -129,8 +136,16 @@ const togglePermission = async (item: RolePermissionItem, nextActive: boolean) =
     await rolePermissionService.toggle(selectedRoleId.value, item.id, nextActive)
     item.active = nextActive
     showToast(`Hak akses ${item.resource}:${item.action} ${nextActive ? 'aktif' : 'nonaktif'}`)
+
+    if (isCurrentRole.value) {
+      await authStore.loadPermissions()
+
+      if (!authStore.hasPermission('role:update'))
+        await router.replace('/dashboard')
+    }
   }
   catch (error) {
+    console.error('[pages/role-permissions.vue]', error)
     showToast(getErrorMessage(error), 'error')
   }
   finally {
@@ -184,7 +199,6 @@ onMounted(async () => {
             label="Cari Hak Akses"
             placeholder="resource:aksi"
             prepend-inner-icon="ri-search-line"
-            clearable
           />
         </VCol>
       </VRow>
@@ -263,6 +277,7 @@ onMounted(async () => {
                         {{ item.active ? 'Aktif' : 'Nonaktif' }}
                       </VChip>
                       <VSwitch
+                        v-if="canUpdate"
                         :model-value="item.active"
                         color="success"
                         hide-details

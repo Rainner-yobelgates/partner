@@ -8,6 +8,7 @@ import {
   type VehicleItem,
   type VehicleServiceItem,
 } from '@/services/masters'
+import { useAuthStore } from '@/stores/auth'
 
 type VehicleServiceForm = {
   vehicle_id: string
@@ -30,7 +31,15 @@ const isLoading = ref(false)
 const isSubmitting = ref(false)
 const isFormDialogOpen = ref(false)
 const isDeleteDialogOpen = ref(false)
+const isDetailDialogOpen = ref(false)
 const editedItem = ref<VehicleServiceItem | null>(null)
+const detailItem = ref<VehicleServiceItem | null>(null)
+const authStore = useAuthStore()
+
+const canCreate = computed(() => authStore.hasPermission('vehicle-service:create'))
+const canUpdate = computed(() => authStore.hasPermission('vehicle-service:update'))
+const canDelete = computed(() => authStore.hasPermission('vehicle-service:delete'))
+const canDetail = computed(() => authStore.hasPermission('vehicle-service:detail'))
 
 const form = ref<VehicleServiceForm>({
   vehicle_id: '',
@@ -55,9 +64,10 @@ const fromIsoToInputDate = (value?: string | null) => value ? new Date(value).to
 const fetchVehicles = async () => {
   try {
     const response = await vehicleMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' })
-    vehicles.value = response.data
+    vehicles.value = response.data.filter(vehicle => vehicle.status === 'ACTIVE')
   }
-  catch {
+  catch (error) {
+    console.error('[pages/vehicle-services.vue]', error)
     // ignore
   }
 }
@@ -75,7 +85,10 @@ const fetchVehicleServices = async () => {
     rows.value = response.data
     total.value = response.total
   }
-  catch (error) { showToast(getErrorMessage(error), 'error') }
+  catch (error) {
+    console.error('[pages/vehicle-services.vue]', error)
+    showToast(getErrorMessage(error), 'error')
+  }
   finally { isLoading.value = false }
 }
 
@@ -123,11 +136,15 @@ const submitForm = async () => {
     isFormDialogOpen.value = false
     await fetchVehicleServices()
   }
-  catch (error) { showToast(getErrorMessage(error), 'error') }
+  catch (error) {
+    console.error('[pages/vehicle-services.vue]', error)
+    showToast(getErrorMessage(error), 'error')
+  }
   finally { isSubmitting.value = false }
 }
 
 const openDeleteDialog = (item: VehicleServiceItem) => { editedItem.value = item; isDeleteDialogOpen.value = true }
+const openDetailDialog = (item: VehicleServiceItem) => { detailItem.value = item; isDetailDialogOpen.value = true }
 const confirmDelete = async () => {
   if (!editedItem.value || isSubmitting.value) return
   isSubmitting.value = true
@@ -138,7 +155,10 @@ const confirmDelete = async () => {
     if (rows.value.length === 1 && page.value > 1) page.value -= 1
     await fetchVehicleServices()
   }
-  catch (error) { showToast(getErrorMessage(error), 'error') }
+  catch (error) {
+    console.error('[pages/vehicle-services.vue]', error)
+    showToast(getErrorMessage(error), 'error')
+  }
   finally { isSubmitting.value = false }
 }
 
@@ -153,13 +173,13 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
       <template #title>
         <div class="d-flex align-center justify-space-between flex-wrap gap-4">
           <span class="text-h6">Data Layanan Kendaraan</span>
-          <VBtn color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">Tambah Layanan</VBtn>
+          <VBtn v-if="canCreate" color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">Tambah Layanan</VBtn>
         </div>
       </template>
     </VCardItem>
     <VCardText>
       <VRow>
-        <VCol cols="12" md="5"><VTextField v-model="search" label="Cari layanan" placeholder="Deskripsi" clearable prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" /></VCol>
+        <VCol cols="12" md="5"><VTextField v-model="search" label="Cari layanan" placeholder="Deskripsi" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" /></VCol>
         <VCol cols="12" md="2"><VBtn block class="mt-md-1" color="secondary" @click="onSearch">Cari</VBtn></VCol>
         <VCol cols="6" md="2"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title:'Tanggal Servis', value:'service_date'},{ title:'Dibuat', value:'created_at'},{ title:'Diubah', value:'updated_at'}]" item-title="title" item-value="value" /></VCol>
         <VCol cols="6" md="1"><VSelect v-model="sortOrder" label="Urutan" :items="[{ title:'DESC', value:'desc'},{ title:'ASC', value:'asc'}]" item-title="title" item-value="value" /></VCol>
@@ -182,7 +202,11 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
             <td>{{ item.cost ?? '-' }}</td>
             <td>{{ item.description || '-' }}</td>
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
-            <td class="text-end"><VBtn size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn><VBtn size="small" variant="text" color="error" @click="openDeleteDialog(item)">Hapus</VBtn></td>
+            <td class="text-end">
+              <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
+              <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
+              <VBtn v-if="canDelete" size="small" variant="text" color="error" @click="openDeleteDialog(item)">Hapus</VBtn>
+            </td>
           </tr>
         </tbody>
       </VTable>
@@ -196,7 +220,7 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
       <VCardText>
         <VForm @submit.prevent="submitForm">
           <VRow>
-            <VCol cols="12" md="6"><VSelect v-model="form.vehicle_id" label="Kendaraan" :items="vehicleOptions" item-title="title" item-value="value" clearable /></VCol>
+            <VCol cols="12" md="6"><VSelect v-model="form.vehicle_id" label="Kendaraan" :items="vehicleOptions" item-title="title" item-value="value" /></VCol>
             <VCol cols="12" md="6"><VTextField v-model="form.service_date" type="datetime-local" label="Tanggal Servis" /></VCol>
             <VCol cols="12" md="6"><VSelect v-model="form.service_type" label="Tipe Layanan" :items="['MAINTENANCE','REPAIR','OIL_CHANGE','INSPECTION']" /></VCol>
             <VCol cols="12" md="6"><VSelect v-model="form.status" label="Status" :items="['ACTIVE','INACTIVE']" /></VCol>
@@ -210,6 +234,29 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
   </VDialog>
 
   <VDialog v-model="isDeleteDialogOpen" max-width="420"><VCard><VCardItem title="Hapus Layanan Kendaraan" /><VCardText>Yakin hapus data layanan <strong>{{ editedItem?.service_type || '-' }}</strong>?</VCardText><VCardActions class="justify-end"><VBtn variant="text" @click="isDeleteDialogOpen=false">Batal</VBtn><VBtn color="error" :loading="isSubmitting" :disabled="isSubmitting" @click="confirmDelete">Hapus</VBtn></VCardActions></VCard></VDialog>
+
+  <VDialog v-model="isDetailDialogOpen" max-width="600">
+    <VCard>
+      <VCardItem title="Detail Layanan Kendaraan" />
+      <VCardText>
+        <VTable density="compact">
+          <tbody>
+            <tr><td>Kendaraan</td><td class="text-end font-weight-medium">{{ detailItem?.vehicle?.plate_number || '-' }}</td></tr>
+            <tr><td>Tanggal Servis</td><td class="text-end">{{ detailItem ? formatDate(detailItem.service_date) : '-' }}</td></tr>
+            <tr><td>Tipe</td><td class="text-end">{{ detailItem?.service_type || '-' }}</td></tr>
+            <tr><td>Biaya</td><td class="text-end">{{ detailItem?.cost ?? '-' }}</td></tr>
+            <tr><td>Deskripsi</td><td class="text-end">{{ detailItem?.description || '-' }}</td></tr>
+            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
+            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
+            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
+          </tbody>
+        </VTable>
+      </VCardText>
+      <VCardActions class="justify-end">
+        <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>

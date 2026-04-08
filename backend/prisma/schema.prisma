@@ -198,6 +198,8 @@ model Vehicle {
   vehicles_uuid String @unique @default(uuid())
   plate_number  String?
   hull_number   String?
+  frame_number  String?
+  machine_number  String?
   vehicle_type  VehicleType?
   brand         String?
   model         String?
@@ -243,10 +245,10 @@ model Driver {
 
   vehicle Vehicle? @relation(fields: [vehicle_id], references: [id])
 
-  orderVehicles         OrderVehicle[] @relation("DriverAssignment")
-  orderVehiclesAssist   OrderVehicle[] @relation("AssistantDriverAssignment")
   tripSheetsDriver      TripSheet[]    @relation("TripDriver")
   tripSheetsAssist      TripSheet[]    @relation("TripAssistant")
+  orderVehiclesDriver   OrderVehicle[] @relation("OrderVehicleDriver")
+  orderVehiclesAssist   OrderVehicle[] @relation("OrderVehicleAssistant")
 
   createdBy User? @relation("driver_created_by", fields: [created_by], references: [id])
   updatedBy User? @relation("driver_updated_by", fields: [updated_by], references: [id])
@@ -425,9 +427,12 @@ model Order {
   customer_email   String?
   order_date       DateTime?
   usage_date       DateTime?
+  start_date       DateTime?
+  finish_date      DateTime?
   standby_time     DateTime?
   pickup_location  String?
   dropoff_location String?
+  destination      String?
   total_vehicles   Int?
   total_amount     Decimal?
   status           OrderStatus?
@@ -469,8 +474,8 @@ model OrderVehicle {
 
   order           Order?   @relation(fields: [order_id], references: [id])
   vehicle         Vehicle? @relation(fields: [vehicle_id], references: [id])
-  driver          Driver?  @relation("DriverAssignment", fields: [driver_id], references: [id])
-  assistantDriver Driver?  @relation("AssistantDriverAssignment", fields: [assistant_driver_id], references: [id])
+  driver          Driver?  @relation("OrderVehicleDriver", fields: [driver_id], references: [id])
+  assistantDriver Driver?  @relation("OrderVehicleAssistant", fields: [assistant_driver_id], references: [id])
   tripSheets      TripSheet[]
 
   createdBy User? @relation("order_vehicle_created_by", fields: [created_by], references: [id])
@@ -490,9 +495,11 @@ model TripSheet {
   fuel_cost        Decimal?
   toll_fee         Decimal?
   parking_fee      Decimal?
+  stay_cost        Decimal?
   expense_notes    String?
   attachment       String?
   status           Status?
+  public_submitted_at DateTime?
 
   created_by BigInt?
   updated_by BigInt?

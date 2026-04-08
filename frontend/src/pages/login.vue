@@ -42,6 +42,7 @@ const handleLogin = async () => {
     await router.push(redirect)
   }
   catch (error) {
+    console.error('[pages/login.vue]', error)
     if (error instanceof ApiError)
       errorMessage.value = error.message
     else
@@ -153,4 +154,5 @@ const handleLogin = async () => {
 <style lang="scss">
 @use "@core/scss/template/pages/page-auth";
 </style>
+
 

@@ -77,6 +77,8 @@ export type VehicleItem = {
   vehicles_uuid: string
   plate_number?: string | null
   hull_number?: string | null
+  frame_number?: string | null
+  machine_number?: string | null
   vehicle_type?: VehicleType | null
   brand?: string | null
   model?: string | null

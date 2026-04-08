@@ -2,6 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import * as express from 'express';
+import { resolveUploadRootsForStatic } from './utils/upload-path.util';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
@@ -30,6 +32,10 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api', app, document);
+
+    resolveUploadRootsForStatic().forEach((uploadRoot) => {
+        app.use('/uploads', express.static(uploadRoot));
+    });
 
     app.useGlobalPipes(
         new ValidationPipe({

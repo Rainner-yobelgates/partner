@@ -69,6 +69,13 @@ export async function request<TResponse>(path: string, options: RequestOptions =
     }
 
     const response = await httpClient.request<TResponse>(config)
+    const payload = response.data as ApiErrorPayload
+
+    if (payload && typeof payload === 'object' && payload.success === false) {
+      const message = payload.message ?? payload.error ?? 'Request failed'
+      throw new ApiError(message, response.status, payload)
+    }
+
     return response.data
   }
   catch (error) {
@@ -86,3 +93,4 @@ export async function request<TResponse>(path: string, options: RequestOptions =
     throw new ApiError('Request failed', 500)
   }
 }
+

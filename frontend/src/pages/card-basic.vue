@@ -25,3 +25,4 @@ import CardSolid from '@/views/demos/cards/card-basic/CardSolid.vue'
     <CardSolid />
   </div>
 </template>
+

@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ApiError } from '@/services/http'
 import { vehicleMasterService, type MasterStatus, type VehicleItem, type VehicleType } from '@/services/masters'
+import { useAuthStore } from '@/stores/auth'
 
 type VehicleForm = {
   plate_number: string
   hull_number: string
+  frame_number: string
+  machine_number: string
   vehicle_type: VehicleType
   brand: string
   model: string
@@ -21,11 +24,21 @@ const sortOrder = ref<'asc' | 'desc'>('desc')
 const isLoading = ref(false)
 const isFormDialogOpen = ref(false)
 const isDeleteDialogOpen = ref(false)
+const isDetailDialogOpen = ref(false)
 const isSubmitting = ref(false)
 const editedItem = ref<VehicleItem | null>(null)
+const detailItem = ref<VehicleItem | null>(null)
+const authStore = useAuthStore()
+
+const canCreate = computed(() => authStore.hasPermission('vehicle:create'))
+const canUpdate = computed(() => authStore.hasPermission('vehicle:update'))
+const canDelete = computed(() => authStore.hasPermission('vehicle:delete'))
+const canDetail = computed(() => authStore.hasPermission('vehicle:detail'))
 
 const form = ref<VehicleForm>({
   plate_number: '',
+  frame_number: '',
+  machine_number: '',
   hull_number: '',
   vehicle_type: 'HIACE',
   brand: '',
@@ -42,7 +55,7 @@ const showToast = (text: string, color: 'success' | 'error' = 'success') => {
   snackbar.value = { show: true, color, text }
 }
 
-const normalizeErrorMessage = (error: unknown) => {
+const getErrorMessage = (error: unknown) => {
   if (error instanceof ApiError)
     return error.message
 
@@ -56,7 +69,6 @@ const formatDate = (value: string) => new Intl.DateTimeFormat('id-ID', {
 
 const fetchVehicles = async () => {
   isLoading.value = true
-
   try {
     const response = await vehicleMasterService.list({
       page: page.value,
@@ -70,7 +82,8 @@ const fetchVehicles = async () => {
     total.value = response.total
   }
   catch (error) {
-    showToast(normalizeErrorMessage(error), 'error')
+    console.error('[pages/vehicles.vue]', error)
+    showToast(getErrorMessage(error), 'error')
   }
   finally {
     isLoading.value = false
@@ -82,6 +95,8 @@ const resetForm = () => {
   form.value = {
     plate_number: '',
     hull_number: '',
+    frame_number: '',
+    machine_number: '',
     vehicle_type: 'HIACE',
     brand: '',
     model: '',
@@ -99,6 +114,8 @@ const openEditDialog = (item: VehicleItem) => {
   form.value = {
     plate_number: item.plate_number || '',
     hull_number: item.hull_number || '',
+    frame_number: item.frame_number || '',
+    machine_number: item.machine_number || '',
     vehicle_type: item.vehicle_type || 'HIACE',
     brand: item.brand || '',
     model: item.model || '',
@@ -116,6 +133,8 @@ const submitForm = async () => {
   const payload = {
     plate_number: form.value.plate_number.trim() || undefined,
     hull_number: form.value.hull_number.trim() || undefined,
+    frame_number: form.value.frame_number.trim() || undefined,
+    machine_number: form.value.machine_number.trim() || undefined,
     vehicle_type: form.value.vehicle_type,
     brand: form.value.brand.trim() || undefined,
     model: form.value.model.trim() || undefined,
@@ -137,7 +156,8 @@ const submitForm = async () => {
     await fetchVehicles()
   }
   catch (error) {
-    showToast(normalizeErrorMessage(error), 'error')
+    console.error('[pages/vehicles.vue]', error)
+    showToast(getErrorMessage(error), 'error')
   }
   finally {
     isSubmitting.value = false
@@ -147,6 +167,11 @@ const submitForm = async () => {
 const openDeleteDialog = (item: VehicleItem) => {
   editedItem.value = item
   isDeleteDialogOpen.value = true
+}
+
+const openDetailDialog = (item: VehicleItem) => {
+  detailItem.value = item
+  isDetailDialogOpen.value = true
 }
 
 const confirmDelete = async () => {
@@ -166,7 +191,8 @@ const confirmDelete = async () => {
     await fetchVehicles()
   }
   catch (error) {
-    showToast(normalizeErrorMessage(error), 'error')
+    console.error('[pages/vehicles.vue]', error)
+    showToast(getErrorMessage(error), 'error')
   }
   finally {
     isSubmitting.value = false
@@ -189,7 +215,7 @@ onMounted(fetchVehicles)
       <template #title>
         <div class="d-flex align-center justify-space-between flex-wrap gap-4">
           <span class="text-h6">Data Kendaraan</span>
-          <VBtn color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">
+          <VBtn v-if="canCreate" color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">
             Tambah Kendaraan
           </VBtn>
         </div>
@@ -203,7 +229,6 @@ onMounted(fetchVehicles)
             v-model="search"
             label="Cari kendaraan"
             placeholder="Plat / rangka / brand / model"
-            clearable
             prepend-inner-icon="ri-search-line"
             @keyup.enter="onSearch"
           />
@@ -251,12 +276,12 @@ onMounted(fetchVehicles)
         <thead>
           <tr>
             <th>Plat</th>
-            <th>No Rangka</th>
+            <th>No Lambung</th>
             <th>Tipe</th>
             <th>Merek</th>
             <th>Model</th>
             <th>Status</th>
-            <th>Diubah Pada</th>
+            <th>Dibuat Pada</th>
             <th class="text-end">Aksi</th>
           </tr>
         </thead>
@@ -277,8 +302,9 @@ onMounted(fetchVehicles)
             </td>
             <td>{{ formatDate(item.updated_at) }}</td>
             <td class="text-end">
-              <VBtn size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
-              <VBtn size="small" variant="text" color="error" @click="openDeleteDialog(item)">Hapus</VBtn>
+              <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
+              <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
+              <VBtn v-if="canDelete" size="small" variant="text" color="error" @click="openDeleteDialog(item)">Hapus</VBtn>
             </td>
           </tr>
         </tbody>
@@ -301,7 +327,13 @@ onMounted(fetchVehicles)
               <VTextField v-model="form.plate_number" label="Nomor Plat" />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="form.hull_number" label="Nomor Rangka" />
+              <VTextField v-model="form.hull_number" label="Nomor Lambung" />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VTextField v-model="form.frame_number" label="Nomor Rangka" />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VTextField v-model="form.machine_number" label="Nomor Mesin" />
             </VCol>
             <VCol cols="12" md="6">
               <VSelect
@@ -342,7 +374,34 @@ onMounted(fetchVehicles)
     </VCard>
   </VDialog>
 
+  <VDialog v-model="isDetailDialogOpen" max-width="600">
+    <VCard>
+      <VCardItem title="Detail Kendaraan" />
+      <VCardText>
+        <VTable density="compact">
+          <tbody>
+            <tr><td>Plat</td><td class="text-end font-weight-medium">{{ detailItem?.plate_number || '-' }}</td></tr>
+            <tr><td>Lambung</td><td class="text-end">{{ detailItem?.hull_number || '-' }}</td></tr>
+            <tr><td>Rangka</td><td class="text-end">{{ detailItem?.frame_number || '-' }}</td></tr>
+            <tr><td>Mesin</td><td class="text-end">{{ detailItem?.machine_number || '-' }}</td></tr>
+            <tr><td>Tipe</td><td class="text-end">{{ detailItem?.vehicle_type || '-' }}</td></tr>
+            <tr><td>Merek</td><td class="text-end">{{ detailItem?.brand || '-' }}</td></tr>
+            <tr><td>Model</td><td class="text-end">{{ detailItem?.model || '-' }}</td></tr>
+            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
+            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
+            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
+          </tbody>
+        </VTable>
+      </VCardText>
+      <VCardActions class="justify-end">
+        <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
+
+
 
 

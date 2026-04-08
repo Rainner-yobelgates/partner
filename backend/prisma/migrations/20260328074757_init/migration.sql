@@ -5,7 +5,7 @@ CREATE TYPE "Status" AS ENUM ('ACTIVE', 'INACTIVE', 'DELETED');
 CREATE TYPE "VehicleType" AS ENUM ('EVALIA', 'MEDIUM_BUS', 'HIACE');
 
 -- CreateEnum
-CREATE TYPE "DriverType" AS ENUM ('ASSISTANT', 'CADANGAN', 'UTAMA');
+CREATE TYPE "DriverType" AS ENUM ('ASSISTANT', 'RESERVE', 'MAIN');
 
 -- CreateEnum
 CREATE TYPE "ServiceType" AS ENUM ('MAINTENANCE', 'REPAIR', 'OIL_CHANGE', 'INSPECTION');
@@ -20,7 +20,7 @@ CREATE TABLE "User" (
     "role_id" BIGINT,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
-    "name" TEXT,
+    "username" TEXT NOT NULL,
     "status" "Status",
     "created_by" BIGINT,
     "updated_by" BIGINT,
@@ -144,6 +144,24 @@ CREATE TABLE "VehicleService" (
 );
 
 -- CreateTable
+CREATE TABLE "Facility" (
+    "id" BIGSERIAL NOT NULL,
+    "facilities_uuid" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "cost" DECIMAL(15,2) NOT NULL,
+    "description" TEXT,
+    "status" "Status" NOT NULL DEFAULT 'ACTIVE',
+    "created_by" BIGINT,
+    "updated_by" BIGINT,
+    "deleted_by" BIGINT,
+    "deleted_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Facility_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Route" (
     "id" BIGSERIAL NOT NULL,
     "routes_uuid" TEXT NOT NULL,
@@ -216,7 +234,7 @@ CREATE TABLE "Shuttle" (
     "scheduled_date" TIMESTAMP(3),
     "fuel" DECIMAL(65,30),
     "toll_fee" DECIMAL(65,30),
-    "lainnya" DECIMAL(65,30),
+    "others" DECIMAL(65,30),
     "status" "Status",
     "created_by" BIGINT,
     "updated_by" BIGINT,
@@ -305,6 +323,9 @@ CREATE UNIQUE INDEX "User_users_uuid_key" ON "User"("users_uuid");
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Role_role_uuid_key" ON "Role"("role_uuid");
 
 -- CreateIndex
@@ -327,6 +348,12 @@ CREATE UNIQUE INDEX "Driver_drivers_uuid_key" ON "Driver"("drivers_uuid");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "VehicleService_vehicle_services_uuid_key" ON "VehicleService"("vehicle_services_uuid");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Facility_facilities_uuid_key" ON "Facility"("facilities_uuid");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Facility_name_key" ON "Facility"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Route_routes_uuid_key" ON "Route"("routes_uuid");
@@ -420,6 +447,15 @@ ALTER TABLE "VehicleService" ADD CONSTRAINT "VehicleService_updated_by_fkey" FOR
 
 -- AddForeignKey
 ALTER TABLE "VehicleService" ADD CONSTRAINT "VehicleService_deleted_by_fkey" FOREIGN KEY ("deleted_by") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Facility" ADD CONSTRAINT "Facility_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Facility" ADD CONSTRAINT "Facility_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Facility" ADD CONSTRAINT "Facility_deleted_by_fkey" FOREIGN KEY ("deleted_by") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Route" ADD CONSTRAINT "Route_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;

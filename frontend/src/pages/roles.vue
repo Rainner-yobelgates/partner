@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { roleMasterService, type MasterStatus, type RoleItem } from '@/services/masters'
+import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/services/http'
 
 type RoleForm = {
@@ -19,8 +20,16 @@ const isLoading = ref(false)
 
 const isFormDialogOpen = ref(false)
 const isDeleteDialogOpen = ref(false)
+const isDetailDialogOpen = ref(false)
 const isSubmitting = ref(false)
 const editedRole = ref<RoleItem | null>(null)
+const detailRole = ref<RoleItem | null>(null)
+const authStore = useAuthStore()
+
+const canCreate = computed(() => authStore.hasPermission('role:create'))
+const canUpdate = computed(() => authStore.hasPermission('role:update'))
+const canDelete = computed(() => authStore.hasPermission('role:delete'))
+const canDetail = computed(() => authStore.hasPermission('role:detail'))
 
 const form = ref<RoleForm>({
   name: '',
@@ -59,7 +68,7 @@ const formatDate = (value: string) => {
   }).format(date)
 }
 
-const normalizeErrorMessage = (error: unknown) => {
+const getErrorMessage = (error: unknown) => {
   if (error instanceof ApiError)
     return error.message
 
@@ -82,7 +91,8 @@ const fetchRoles = async () => {
     total.value = response.total
   }
   catch (error) {
-    showToast(normalizeErrorMessage(error), 'error')
+    console.error('[pages/roles.vue]', error)
+    showToast(getErrorMessage(error), 'error')
   }
   finally {
     isLoading.value = false
@@ -140,7 +150,8 @@ const submitForm = async () => {
     await fetchRoles()
   }
   catch (error) {
-    showToast(normalizeErrorMessage(error), 'error')
+    console.error('[pages/roles.vue]', error)
+    showToast(getErrorMessage(error), 'error')
   }
   finally {
     isSubmitting.value = false
@@ -150,6 +161,11 @@ const submitForm = async () => {
 const openDeleteDialog = (item: RoleItem) => {
   editedRole.value = item
   isDeleteDialogOpen.value = true
+}
+
+const openDetailDialog = (item: RoleItem) => {
+  detailRole.value = item
+  isDetailDialogOpen.value = true
 }
 
 const confirmDelete = async () => {
@@ -169,7 +185,8 @@ const confirmDelete = async () => {
     await fetchRoles()
   }
   catch (error) {
-    showToast(normalizeErrorMessage(error), 'error')
+    console.error('[pages/roles.vue]', error)
+    showToast(getErrorMessage(error), 'error')
   }
   finally {
     isSubmitting.value = false
@@ -193,6 +210,7 @@ onMounted(fetchRoles)
         <div class="d-flex align-center justify-space-between flex-wrap gap-4">
           <span class="text-h6">Data Peran</span>
           <VBtn
+            v-if="canCreate"
             color="primary"
             prepend-icon="ri-add-line"
             @click="openCreateDialog"
@@ -213,7 +231,6 @@ onMounted(fetchRoles)
             v-model="search"
             label="Cari peran"
             placeholder="Nama atau deskripsi"
-            clearable
             prepend-inner-icon="ri-search-line"
             @keyup.enter="onSearch"
           />
@@ -326,6 +343,16 @@ onMounted(fetchRoles)
             <td>{{ formatDate(item.updated_at) }}</td>
             <td class="text-end">
               <VBtn
+                v-if="canDetail"
+                size="small"
+                variant="text"
+                color="secondary"
+                @click="openDetailDialog(item)"
+              >
+                Detail
+              </VBtn>
+              <VBtn
+                v-if="canUpdate"
                 size="small"
                 variant="text"
                 color="primary"
@@ -334,6 +361,7 @@ onMounted(fetchRoles)
                 Ubah
               </VBtn>
               <VBtn
+                v-if="canDelete"
                 size="small"
                 variant="text"
                 color="error"
@@ -439,6 +467,44 @@ onMounted(fetchRoles)
     </VCard>
   </VDialog>
 
+  <VDialog
+    v-model="isDetailDialogOpen"
+    max-width="520"
+  >
+    <VCard>
+      <VCardItem title="Detail Peran" />
+      <VCardText>
+        <VTable density="compact">
+          <tbody>
+            <tr>
+              <td>Nama</td>
+              <td class="text-end font-weight-medium">{{ detailRole?.name || '-' }}</td>
+            </tr>
+            <tr>
+              <td>Deskripsi</td>
+              <td class="text-end">{{ detailRole?.description || '-' }}</td>
+            </tr>
+            <tr>
+              <td>Status</td>
+              <td class="text-end">{{ detailRole?.status || '-' }}</td>
+            </tr>
+            <tr>
+              <td>Dibuat</td>
+              <td class="text-end">{{ detailRole ? formatDate(detailRole.created_at) : '-' }}</td>
+            </tr>
+            <tr>
+              <td>Diubah</td>
+              <td class="text-end">{{ detailRole ? formatDate(detailRole.updated_at) : '-' }}</td>
+            </tr>
+          </tbody>
+        </VTable>
+      </VCardText>
+      <VCardActions class="justify-end">
+        <VBtn variant="text" @click="isDetailDialogOpen = false">Tutup</VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
   <VSnackbar
     v-model="snackbar.show"
     :color="snackbar.color"
@@ -447,5 +513,6 @@ onMounted(fetchRoles)
     {{ snackbar.text }}
   </VSnackbar>
 </template>
+
 
 

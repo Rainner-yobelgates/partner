@@ -11,6 +11,7 @@ import {
   type ShuttleItem,
   type VehicleItem,
 } from '@/services/masters'
+import { useAuthStore } from '@/stores/auth'
 
 type ShuttleForm = {
   contract_id: string
@@ -38,7 +39,15 @@ const isLoading = ref(false)
 const isSubmitting = ref(false)
 const isFormDialogOpen = ref(false)
 const isDeleteDialogOpen = ref(false)
+const isDetailDialogOpen = ref(false)
 const editedItem = ref<ShuttleItem | null>(null)
+const detailItem = ref<ShuttleItem | null>(null)
+const authStore = useAuthStore()
+
+const canCreate = computed(() => authStore.hasPermission('shuttle:create'))
+const canUpdate = computed(() => authStore.hasPermission('shuttle:update'))
+const canDelete = computed(() => authStore.hasPermission('shuttle:delete'))
+const canDetail = computed(() => authStore.hasPermission('shuttle:detail'))
 
 const form = ref<ShuttleForm>({
   contract_id: '',
@@ -68,9 +77,9 @@ const toIsoDate = (value: string) => value ? new Date(value).toISOString() : und
 
 const fetchOptions = async () => {
   await Promise.all([
-    contractMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' }).then(res => { contracts.value = res.data }).catch(() => {}),
-    vehicleMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' }).then(res => { vehicles.value = res.data }).catch(() => {}),
-    routeMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' }).then(res => { routes.value = res.data }).catch(() => {}),
+    contractMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' }).then(res => { contracts.value = res.data.filter(contract => contract.status === 'ACTIVE') }).catch(() => {}),
+    vehicleMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' }).then(res => { vehicles.value = res.data.filter(vehicle => vehicle.status === 'ACTIVE') }).catch(() => {}),
+    routeMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' }).then(res => { routes.value = res.data.filter(route => route.status === 'ACTIVE') }).catch(() => {}),
   ])
 }
 
@@ -86,7 +95,10 @@ const fetchShuttles = async () => {
     rows.value = response.data
     total.value = response.total
   }
-  catch (error) { showToast(getErrorMessage(error), 'error') }
+  catch (error) {
+    console.error('[pages/shuttles.vue]', error)
+    showToast(getErrorMessage(error), 'error')
+  }
   finally { isLoading.value = false }
 }
 
@@ -140,11 +152,15 @@ const submitForm = async () => {
     isFormDialogOpen.value = false
     await fetchShuttles()
   }
-  catch (error) { showToast(getErrorMessage(error), 'error') }
+  catch (error) {
+    console.error('[pages/shuttles.vue]', error)
+    showToast(getErrorMessage(error), 'error')
+  }
   finally { isSubmitting.value = false }
 }
 
 const openDeleteDialog = (item: ShuttleItem) => { editedItem.value = item; isDeleteDialogOpen.value = true }
+const openDetailDialog = (item: ShuttleItem) => { detailItem.value = item; isDetailDialogOpen.value = true }
 const confirmDelete = async () => {
   if (!editedItem.value || isSubmitting.value) return
   isSubmitting.value = true
@@ -155,7 +171,10 @@ const confirmDelete = async () => {
     if (rows.value.length === 1 && page.value > 1) page.value -= 1
     await fetchShuttles()
   }
-  catch (error) { showToast(getErrorMessage(error), 'error') }
+  catch (error) {
+    console.error('[pages/shuttles.vue]', error)
+    showToast(getErrorMessage(error), 'error')
+  }
   finally { isSubmitting.value = false }
 }
 
@@ -169,7 +188,7 @@ onMounted(async () => { await fetchOptions(); await fetchShuttles() })
       <template #title>
         <div class="d-flex align-center justify-space-between flex-wrap gap-4">
           <span class="text-h6">Data Antar Jemput</span>
-          <VBtn color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">Tambah Antar Jemput</VBtn>
+          <VBtn v-if="canCreate" color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">Tambah Antar Jemput</VBtn>
         </div>
       </template>
     </VCardItem>
@@ -196,7 +215,11 @@ onMounted(async () => { await fetchOptions(); await fetchShuttles() })
             <td>{{ formatDate(item.scheduled_date) }}</td>
             <td>{{ item.crew_incentive ?? '-' }}</td>
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
-            <td class="text-end"><VBtn size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn><VBtn size="small" variant="text" color="error" @click="openDeleteDialog(item)">Hapus</VBtn></td>
+            <td class="text-end">
+              <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
+              <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
+              <VBtn v-if="canDelete" size="small" variant="text" color="error" @click="openDeleteDialog(item)">Hapus</VBtn>
+            </td>
           </tr>
         </tbody>
       </VTable>
@@ -210,9 +233,9 @@ onMounted(async () => { await fetchOptions(); await fetchShuttles() })
       <VCardText>
         <VForm @submit.prevent="submitForm">
           <VRow>
-            <VCol cols="12" md="4"><VSelect v-model="form.contract_id" label="Kontrak" :items="contractOptions" item-title="title" item-value="value" clearable /></VCol>
-            <VCol cols="12" md="4"><VSelect v-model="form.vehicle_id" label="Kendaraan" :items="vehicleOptions" item-title="title" item-value="value" clearable /></VCol>
-            <VCol cols="12" md="4"><VSelect v-model="form.route_id" label="Rute" :items="routeOptions" item-title="title" item-value="value" clearable /></VCol>
+            <VCol cols="12" md="4"><VSelect v-model="form.contract_id" label="Kontrak" :items="contractOptions" item-title="title" item-value="value" /></VCol>
+            <VCol cols="12" md="4"><VSelect v-model="form.vehicle_id" label="Kendaraan" :items="vehicleOptions" item-title="title" item-value="value" /></VCol>
+            <VCol cols="12" md="4"><VSelect v-model="form.route_id" label="Rute" :items="routeOptions" item-title="title" item-value="value" /></VCol>
             <VCol cols="12" md="4"><VTextField v-model="form.scheduled_date" type="datetime-local" label="Jadwal" /></VCol>
             <VCol cols="12" md="4"><VTextField v-model.number="form.crew_incentive" type="number" label="Insentif Kru" /></VCol>
             <VCol cols="12" md="4"><VSelect v-model="form.status" label="Status" :items="['ACTIVE','INACTIVE']" /></VCol>
@@ -227,6 +250,32 @@ onMounted(async () => { await fetchOptions(); await fetchShuttles() })
   </VDialog>
 
   <VDialog v-model="isDeleteDialogOpen" max-width="420"><VCard><VCardItem title="Hapus Antar Jemput" /><VCardText>Yakin hapus antar jemput <strong>{{ editedItem?.shuttles_uuid }}</strong>?</VCardText><VCardActions class="justify-end"><VBtn variant="text" @click="isDeleteDialogOpen=false">Batal</VBtn><VBtn color="error" :loading="isSubmitting" :disabled="isSubmitting" @click="confirmDelete">Hapus</VBtn></VCardActions></VCard></VDialog>
+
+  <VDialog v-model="isDetailDialogOpen" max-width="700">
+    <VCard>
+      <VCardItem title="Detail Antar Jemput" />
+      <VCardText>
+        <VTable density="compact">
+          <tbody>
+            <tr><td>Kontrak</td><td class="text-end font-weight-medium">{{ detailItem?.contract?.contract_number || '-' }}</td></tr>
+            <tr><td>Kendaraan</td><td class="text-end">{{ detailItem?.vehicle?.plate_number || '-' }}</td></tr>
+            <tr><td>Rute</td><td class="text-end">{{ detailItem?.route ? `${detailItem.route.origin || '-'} -> ${detailItem.route.destination || '-'}` : '-' }}</td></tr>
+            <tr><td>Jadwal</td><td class="text-end">{{ detailItem ? formatDate(detailItem.scheduled_date) : '-' }}</td></tr>
+            <tr><td>Insentif Kru</td><td class="text-end">{{ detailItem?.crew_incentive ?? '-' }}</td></tr>
+            <tr><td>BBM</td><td class="text-end">{{ detailItem?.fuel ?? '-' }}</td></tr>
+            <tr><td>Biaya Tol</td><td class="text-end">{{ detailItem?.toll_fee ?? '-' }}</td></tr>
+            <tr><td>Lainnya</td><td class="text-end">{{ detailItem?.others ?? '-' }}</td></tr>
+            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
+            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
+            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
+          </tbody>
+        </VTable>
+      </VCardText>
+      <VCardActions class="justify-end">
+        <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>

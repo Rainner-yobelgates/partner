@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ApiError } from '@/services/http'
 import { routeMasterService, type MasterStatus, type RouteItem } from '@/services/masters'
+import { useAuthStore } from '@/stores/auth'
 
 type RouteForm = {
   origin: string
@@ -21,7 +22,15 @@ const isLoading = ref(false)
 const isSubmitting = ref(false)
 const isFormDialogOpen = ref(false)
 const isDeleteDialogOpen = ref(false)
+const isDetailDialogOpen = ref(false)
 const editedItem = ref<RouteItem | null>(null)
+const detailItem = ref<RouteItem | null>(null)
+const authStore = useAuthStore()
+
+const canCreate = computed(() => authStore.hasPermission('route:create'))
+const canUpdate = computed(() => authStore.hasPermission('route:update'))
+const canDelete = computed(() => authStore.hasPermission('route:delete'))
+const canDetail = computed(() => authStore.hasPermission('route:detail'))
 
 const form = ref<RouteForm>({
   origin: '',
@@ -53,6 +62,7 @@ const fetchRoutes = async () => {
     total.value = response.total
   }
   catch (error) {
+    console.error('[pages/routes.vue]', error)
     showToast(getErrorMessage(error), 'error')
   }
   finally {
@@ -102,6 +112,7 @@ const submitForm = async () => {
     await fetchRoutes()
   }
   catch (error) {
+    console.error('[pages/routes.vue]', error)
     showToast(getErrorMessage(error), 'error')
   }
   finally {
@@ -110,6 +121,7 @@ const submitForm = async () => {
 }
 
 const openDeleteDialog = (item: RouteItem) => { editedItem.value = item; isDeleteDialogOpen.value = true }
+const openDetailDialog = (item: RouteItem) => { detailItem.value = item; isDetailDialogOpen.value = true }
 const confirmDelete = async () => {
   if (!editedItem.value || isSubmitting.value) return
   isSubmitting.value = true
@@ -120,7 +132,10 @@ const confirmDelete = async () => {
     if (rows.value.length === 1 && page.value > 1) page.value -= 1
     await fetchRoutes()
   }
-  catch (error) { showToast(getErrorMessage(error), 'error') }
+  catch (error) {
+    console.error('[pages/routes.vue]', error)
+    showToast(getErrorMessage(error), 'error')
+  }
   finally { isSubmitting.value = false }
 }
 
@@ -135,13 +150,13 @@ onMounted(fetchRoutes)
       <template #title>
         <div class="d-flex align-center justify-space-between flex-wrap gap-4">
           <span class="text-h6">Data Rute</span>
-          <VBtn color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">Tambah Rute</VBtn>
+          <VBtn v-if="canCreate" color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">Tambah Rute</VBtn>
         </div>
       </template>
     </VCardItem>
     <VCardText>
       <VRow>
-        <VCol cols="12" md="5"><VTextField v-model="search" label="Cari rute" placeholder="Asal / tujuan" clearable prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" /></VCol>
+        <VCol cols="12" md="5"><VTextField v-model="search" label="Cari rute" placeholder="Asal / tujuan" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" /></VCol>
         <VCol cols="12" md="2"><VBtn block class="mt-md-1" color="secondary" @click="onSearch">Cari</VBtn></VCol>
         <VCol cols="6" md="2"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title: 'Dibuat', value: 'created_at' },{ title: 'Asal', value: 'origin' },{ title: 'Diubah', value: 'updated_at' }]" item-title="title" item-value="value" /></VCol>
         <VCol cols="6" md="1"><VSelect v-model="sortOrder" label="Urutan" :items="[{ title:'DESC', value:'desc' },{ title:'ASC', value:'asc' }]" item-title="title" item-value="value" /></VCol>
@@ -164,7 +179,11 @@ onMounted(fetchRoutes)
             <td>{{ item.estimated_time ?? '-' }}</td>
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
             <td>{{ formatDate(item.updated_at) }}</td>
-            <td class="text-end"><VBtn size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn><VBtn size="small" variant="text" color="error" @click="openDeleteDialog(item)">Hapus</VBtn></td>
+            <td class="text-end">
+              <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
+              <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
+              <VBtn v-if="canDelete" size="small" variant="text" color="error" @click="openDeleteDialog(item)">Hapus</VBtn>
+            </td>
           </tr>
         </tbody>
       </VTable>
@@ -197,7 +216,30 @@ onMounted(fetchRoutes)
     <VCard><VCardItem title="Hapus Rute" /><VCardText>Yakin hapus rute <strong>{{ editedItem?.origin || '-' }} - {{ editedItem?.destination || '-' }}</strong>?</VCardText><VCardActions class="justify-end"><VBtn variant="text" @click="isDeleteDialogOpen=false">Batal</VBtn><VBtn color="error" :loading="isSubmitting" :disabled="isSubmitting" @click="confirmDelete">Hapus</VBtn></VCardActions></VCard>
   </VDialog>
 
+  <VDialog v-model="isDetailDialogOpen" max-width="560">
+    <VCard>
+      <VCardItem title="Detail Rute" />
+      <VCardText>
+        <VTable density="compact">
+          <tbody>
+            <tr><td>Asal</td><td class="text-end font-weight-medium">{{ detailItem?.origin || '-' }}</td></tr>
+            <tr><td>Tujuan</td><td class="text-end">{{ detailItem?.destination || '-' }}</td></tr>
+            <tr><td>Jarak</td><td class="text-end">{{ detailItem?.distance ?? '-' }}</td></tr>
+            <tr><td>Estimasi (menit)</td><td class="text-end">{{ detailItem?.estimated_time ?? '-' }}</td></tr>
+            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
+            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
+            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
+          </tbody>
+        </VTable>
+      </VCardText>
+      <VCardActions class="justify-end">
+        <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
+
 
 

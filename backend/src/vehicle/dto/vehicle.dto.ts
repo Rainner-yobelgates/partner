@@ -11,10 +11,20 @@ export class CreateVehicleDto {
   @IsString()
   plate_number?: string;
 
-  @ApiPropertyOptional({ description: 'Nomor rangka kendaraan', example: 'MH1JF5118NK123456' })
+  @ApiPropertyOptional({ description: 'Nomor lambung kendaraan', example: 'MH1JF5118NK123456' })
   @IsOptional()
   @IsString()
   hull_number?: string;
+  
+  @ApiPropertyOptional({ description: 'Nomor rangka kendaraan', example: 'MH1KC5210NK123456' })
+  @IsOptional()
+  @IsString()
+  frame_number?: string;
+
+  @ApiPropertyOptional({ description: 'Nomor mesin kendaraan', example: 'KC52E1234567' })
+  @IsOptional()
+  @IsString()
+  machine_number?: string;
 
   @ApiPropertyOptional({
     description: 'Tipe kendaraan',

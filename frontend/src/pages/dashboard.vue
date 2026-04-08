@@ -113,3 +113,4 @@ const newProject = {
     </VCol>
   </VRow>
 </template>
+

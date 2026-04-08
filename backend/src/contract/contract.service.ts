@@ -132,24 +132,13 @@ export class ContractService {
   // ──────────────────────────────────────────
   async create(dto: CreateContractDto, user: CurrentUserType) {
     try {
-      // Cek contract_number duplikat jika diberikan
-      if (dto.contract_number) {
-        const exists = await this.prisma.db.contract.findFirst({
-          where: { contract_number: dto.contract_number, deleted_at: null },
-        });
-        if (exists) {
-          throw new ConflictException({
-            success: false,
-            message: `Kontrak dengan nomor "${dto.contract_number}" sudah terdaftar`,
-          });
-        }
-      }
+      const contractNumber = await this.resolveContractNumber(dto.contract_number);
 
       const userId = normalizeUserId(user.id);
 
       const contract = await this.prisma.db.contract.create({
         data: {
-          contract_number: dto.contract_number,
+          contract_number: contractNumber,
           contact_person: dto.contact_person,
           phone_number: dto.phone_number,
           email: dto.email,
@@ -276,6 +265,48 @@ export class ContractService {
   // ──────────────────────────────────────────
   // HELPER: Error Handler
   // ──────────────────────────────────────────
+
+  private generateTimestampCode(prefix: string) {
+    const now = new Date();
+    const pad = (value: number, length = 2) => value.toString().padStart(length, '0');
+    const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}${pad(now.getMilliseconds(), 3)}`;
+    const random = Math.floor(100 + Math.random() * 900);
+    return `${prefix}-${timestamp}-${random}`;
+  }
+
+  private async resolveContractNumber(input?: string) {
+    const hasInput = Boolean(input && input.trim());
+    let candidate = hasInput ? input!.trim() : this.generateTimestampCode('CTR');
+    let attempt = 0;
+
+    while (true) {
+      const exists = await this.prisma.db.contract.findFirst({
+        where: { contract_number: candidate, deleted_at: null },
+        select: { id: true },
+      });
+
+      if (!exists)
+        return candidate;
+
+      if (hasInput) {
+        throw new ConflictException({
+          success: false,
+          message: `Kontrak dengan nomor "${candidate}" sudah terdaftar`,
+        });
+      }
+
+      attempt += 1;
+      if (attempt > 5) {
+        throw new ConflictException({
+          success: false,
+          message: 'Gagal menghasilkan nomor kontrak unik. Coba lagi.',
+        });
+      }
+
+      candidate = this.generateTimestampCode('CTR');
+    }
+  }
+
   private handleError(error: unknown) {
     if (error instanceof Array) {
       return { success: false, message: 'Validation failed', errors: error };
@@ -286,3 +317,4 @@ export class ContractService {
     return { success: false, message: 'Operation failed', error: 'Unknown error' };
   }
 }
+

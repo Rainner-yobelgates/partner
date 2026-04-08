@@ -8,6 +8,8 @@ import {
   type MasterStatus,
   type VehicleItem,
 } from '@/services/masters'
+import { useAuthStore } from '@/stores/auth'
+import { optionalPhoneRule, sanitizePhoneNumber } from '@/utils/phone'
 
 type DriverForm = {
   name: string
@@ -30,8 +32,16 @@ const sortOrder = ref<'asc' | 'desc'>('desc')
 const isLoading = ref(false)
 const isFormDialogOpen = ref(false)
 const isDeleteDialogOpen = ref(false)
+const isDetailDialogOpen = ref(false)
 const isSubmitting = ref(false)
 const editedItem = ref<DriverItem | null>(null)
+const detailItem = ref<DriverItem | null>(null)
+const authStore = useAuthStore()
+
+const canCreate = computed(() => authStore.hasPermission('driver:create'))
+const canUpdate = computed(() => authStore.hasPermission('driver:update'))
+const canDelete = computed(() => authStore.hasPermission('driver:delete'))
+const canDetail = computed(() => authStore.hasPermission('driver:detail'))
 
 const form = ref<DriverForm>({
   name: '',
@@ -52,12 +62,13 @@ const vehicleOptions = computed(() => vehicles.value.map(vehicle => ({
   title: vehicle.plate_number || `Kendaraan #${vehicle.id}`,
   value: vehicle.id,
 })))
+const phoneRules = [optionalPhoneRule]
 
 const showToast = (text: string, color: 'success' | 'error' = 'success') => {
   snackbar.value = { show: true, color, text }
 }
 
-const normalizeErrorMessage = (error: unknown) => {
+const getErrorMessage = (error: unknown) => {
   if (error instanceof ApiError)
     return error.message
 
@@ -77,9 +88,10 @@ const fetchVehicleOptions = async () => {
       sortBy: 'created_at',
       sortOrder: 'desc',
     })
-    vehicles.value = response.data
+    vehicles.value = response.data.filter(vehicle => vehicle.status === 'ACTIVE')
   }
-  catch {
+  catch (error) {
+    console.error('[pages/drivers.vue]', error)
     // ignore
   }
 }
@@ -100,7 +112,8 @@ const fetchDrivers = async () => {
     total.value = response.total
   }
   catch (error) {
-    showToast(normalizeErrorMessage(error), 'error')
+    console.error('[pages/drivers.vue]', error)
+    showToast(getErrorMessage(error), 'error')
   }
   finally {
     isLoading.value = false
@@ -129,8 +142,8 @@ const openEditDialog = (item: DriverItem) => {
   editedItem.value = item
   form.value = {
     name: item.name,
-    phone_number: item.phone_number || '',
-    emergency_contact: item.emergency_contact || '',
+    phone_number: sanitizePhoneNumber(item.phone_number || ''),
+    emergency_contact: sanitizePhoneNumber(item.emergency_contact || ''),
     address: item.address || '',
     type: item.type || 'MAIN',
     status: item.status || 'ACTIVE',
@@ -147,8 +160,8 @@ const submitForm = async () => {
 
   const payload = {
     name: form.value.name.trim(),
-    phone_number: form.value.phone_number.trim() || undefined,
-    emergency_contact: form.value.emergency_contact.trim() || undefined,
+    phone_number: sanitizePhoneNumber(form.value.phone_number) || undefined,
+    emergency_contact: sanitizePhoneNumber(form.value.emergency_contact) || undefined,
     address: form.value.address.trim() || undefined,
     type: form.value.type,
     status: form.value.status,
@@ -170,16 +183,26 @@ const submitForm = async () => {
     await fetchDrivers()
   }
   catch (error) {
-    showToast(normalizeErrorMessage(error), 'error')
+    console.error('[pages/drivers.vue]', error)
+    showToast(getErrorMessage(error), 'error')
   }
   finally {
     isSubmitting.value = false
   }
 }
 
+const onPhoneInput = (field: 'phone_number' | 'emergency_contact') => {
+  form.value[field] = sanitizePhoneNumber(form.value[field])
+}
+
 const openDeleteDialog = (item: DriverItem) => {
   editedItem.value = item
   isDeleteDialogOpen.value = true
+}
+
+const openDetailDialog = (item: DriverItem) => {
+  detailItem.value = item
+  isDetailDialogOpen.value = true
 }
 
 const confirmDelete = async () => {
@@ -199,7 +222,8 @@ const confirmDelete = async () => {
     await fetchDrivers()
   }
   catch (error) {
-    showToast(normalizeErrorMessage(error), 'error')
+    console.error('[pages/drivers.vue]', error)
+    showToast(getErrorMessage(error), 'error')
   }
   finally {
     isSubmitting.value = false
@@ -225,7 +249,7 @@ onMounted(async () => {
       <template #title>
         <div class="d-flex align-center justify-space-between flex-wrap gap-4">
           <span class="text-h6">Data Pengemudi</span>
-          <VBtn color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">
+          <VBtn v-if="canCreate" color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">
             Tambah Pengemudi
           </VBtn>
         </div>
@@ -239,7 +263,6 @@ onMounted(async () => {
             v-model="search"
             label="Cari pengemudi"
             placeholder="Nama / telepon / alamat"
-            clearable
             prepend-inner-icon="ri-search-line"
             @keyup.enter="onSearch"
           />
@@ -311,8 +334,9 @@ onMounted(async () => {
             </td>
             <td>{{ formatDate(item.updated_at) }}</td>
             <td class="text-end">
-              <VBtn size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
-              <VBtn size="small" variant="text" color="error" @click="openDeleteDialog(item)">Hapus</VBtn>
+              <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
+              <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
+              <VBtn v-if="canDelete" size="small" variant="text" color="error" @click="openDeleteDialog(item)">Hapus</VBtn>
             </td>
           </tr>
         </tbody>
@@ -335,10 +359,26 @@ onMounted(async () => {
               <VTextField v-model="form.name" label="Nama" :rules="[v => !!v || 'Nama wajib diisi']" />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="form.phone_number" label="Nomor Telepon" />
+              <VTextField
+                v-model="form.phone_number"
+                label="Nomor Telepon"
+                type="tel"
+                inputmode="numeric"
+                :maxlength="15"
+                :rules="phoneRules"
+                @update:model-value="onPhoneInput('phone_number')"
+              />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="form.emergency_contact" label="Kontak Darurat" />
+              <VTextField
+                v-model="form.emergency_contact"
+                label="Kontak Darurat"
+                type="tel"
+                inputmode="numeric"
+                :maxlength="15"
+                :rules="phoneRules"
+                @update:model-value="onPhoneInput('emergency_contact')"
+              />
             </VCol>
             <VCol cols="12" md="6">
               <VSelect v-model="form.type" label="Tipe Pengemudi" :items="['MAIN', 'ASSISTANT', 'RESERVE']" />
@@ -350,7 +390,6 @@ onMounted(async () => {
                 :items="vehicleOptions"
                 item-title="title"
                 item-value="value"
-                clearable
               />
             </VCol>
             <VCol cols="12" md="6">
@@ -380,7 +419,30 @@ onMounted(async () => {
     </VCard>
   </VDialog>
 
+  <VDialog v-model="isDetailDialogOpen" max-width="600">
+    <VCard>
+      <VCardItem title="Detail Pengemudi" />
+      <VCardText>
+        <VTable density="compact">
+          <tbody>
+            <tr><td>Nama</td><td class="text-end font-weight-medium">{{ detailItem?.name || '-' }}</td></tr>
+            <tr><td>Telepon</td><td class="text-end">{{ detailItem?.phone_number || '-' }}</td></tr>
+            <tr><td>Kontak Darurat</td><td class="text-end">{{ detailItem?.emergency_contact || '-' }}</td></tr>
+            <tr><td>Alamat</td><td class="text-end">{{ detailItem?.address || '-' }}</td></tr>
+            <tr><td>Tipe</td><td class="text-end">{{ detailItem?.type || '-' }}</td></tr>
+            <tr><td>Kendaraan</td><td class="text-end">{{ detailItem?.vehicle?.plate_number || '-' }}</td></tr>
+            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
+            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
+            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
+          </tbody>
+        </VTable>
+      </VCardText>
+      <VCardActions class="justify-end">
+        <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
-
 

@@ -14,9 +14,11 @@ import { ContractController } from './contract/contract.controller';
 import { ContractModule } from './contract/contract.module';
 import { ShuttleModule } from './shuttle/shuttle.module';
 import { UserModule } from './user/user.module';
+import { OrderModule } from './order/order.module';
+import { TripSheetModule } from './trip_sheet/trip-sheet.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, AuthModule, RoleModule, DriverModule, VehicleModule, RouteModule, VehicleServiceModule, FacilityModule, ContractModule, ShuttleModule, UserModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, AuthModule, RoleModule, DriverModule, VehicleModule, RouteModule, VehicleServiceModule, FacilityModule, ContractModule, ShuttleModule, UserModule, OrderModule, TripSheetModule],
   providers: [DriverService],
   controllers: [DriverController, ContractController],
 })

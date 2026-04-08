@@ -29,7 +29,7 @@ async function main() {
   console.log('✔ Roles seeded');
 
   // PERMISSIONS
-  const resources = ['user', 'role', 'vehicle', 'vehicle-service', 'driver', 'route', 'contract', 'order', 'shuttle', 'trip_sheet'];
+  const resources = ['user', 'role', 'vehicle', 'vehicle-service', 'driver', 'route', 'contract', 'order', 'shuttle', 'trip_sheet', 'facility'];
   const actions = ['create', 'read', 'update', 'delete', 'detail'];
 
   const permissions:Permission[] = [];

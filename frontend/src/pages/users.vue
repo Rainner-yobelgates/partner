@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ApiError } from '@/services/http'
 import { roleMasterService, userMasterService, type MasterStatus, type RoleItem, type UserItem } from '@/services/masters'
+import { useAuthStore } from '@/stores/auth'
 
 type UserForm = {
   username: string
@@ -21,8 +22,16 @@ const sortOrder = ref<'asc' | 'desc'>('desc')
 const isLoading = ref(false)
 const isFormDialogOpen = ref(false)
 const isDeleteDialogOpen = ref(false)
+const isDetailDialogOpen = ref(false)
 const isSubmitting = ref(false)
 const editedItem = ref<UserItem | null>(null)
+const detailItem = ref<UserItem | null>(null)
+const authStore = useAuthStore()
+
+const canCreate = computed(() => authStore.hasPermission('user:create'))
+const canUpdate = computed(() => authStore.hasPermission('user:update'))
+const canDelete = computed(() => authStore.hasPermission('user:delete'))
+const canDetail = computed(() => authStore.hasPermission('user:detail'))
 
 const form = ref<UserForm>({
   username: '',
@@ -50,7 +59,7 @@ const showToast = (text: string, color: 'success' | 'error' = 'success') => {
   snackbar.value = { show: true, color, text }
 }
 
-const normalizeErrorMessage = (error: unknown) => {
+const getErrorMessage = (error: unknown) => {
   if (error instanceof ApiError)
     return error.message
 
@@ -71,9 +80,10 @@ const fetchRoles = async () => {
       sortOrder: 'asc',
     })
 
-    roles.value = response.data
+    roles.value = response.data.filter(role => role.status === 'ACTIVE')
   }
-  catch {
+  catch (error) {
+    console.error('[pages/users.vue]', error)
     // ignore; user CRUD still works without role options
   }
 }
@@ -94,7 +104,8 @@ const fetchUsers = async () => {
     total.value = response.total
   }
   catch (error) {
-    showToast(normalizeErrorMessage(error), 'error')
+    console.error('[pages/users.vue]', error)
+    showToast(getErrorMessage(error), 'error')
   }
   finally {
     isLoading.value = false
@@ -161,7 +172,8 @@ const submitForm = async () => {
     await fetchUsers()
   }
   catch (error) {
-    showToast(error instanceof Error ? error.message : normalizeErrorMessage(error), 'error')
+    console.error('[pages/users.vue]', error)
+    showToast(error instanceof Error ? error.message : getErrorMessage(error), 'error')
   }
   finally {
     isSubmitting.value = false
@@ -171,6 +183,11 @@ const submitForm = async () => {
 const openDeleteDialog = (item: UserItem) => {
   editedItem.value = item
   isDeleteDialogOpen.value = true
+}
+
+const openDetailDialog = (item: UserItem) => {
+  detailItem.value = item
+  isDetailDialogOpen.value = true
 }
 
 const confirmDelete = async () => {
@@ -190,7 +207,8 @@ const confirmDelete = async () => {
     await fetchUsers()
   }
   catch (error) {
-    showToast(normalizeErrorMessage(error), 'error')
+    console.error('[pages/users.vue]', error)
+    showToast(getErrorMessage(error), 'error')
   }
   finally {
     isSubmitting.value = false
@@ -217,6 +235,7 @@ onMounted(async () => {
         <div class="d-flex align-center justify-space-between flex-wrap gap-4">
           <span class="text-h6">Data Pengguna</span>
           <VBtn
+            v-if="canCreate"
             color="primary"
             prepend-icon="ri-add-line"
             @click="openCreateDialog"
@@ -234,7 +253,6 @@ onMounted(async () => {
             v-model="search"
             label="Cari pengguna"
             placeholder="Username atau email"
-            clearable
             prepend-inner-icon="ri-search-line"
             @keyup.enter="onSearch"
           />
@@ -312,10 +330,13 @@ onMounted(async () => {
             </td>
             <td>{{ formatDate(item.updated_at) }}</td>
             <td class="text-end">
-              <VBtn size="small" variant="text" color="primary" @click="openEditDialog(item)">
+              <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">
+                Detail
+              </VBtn>
+              <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">
                 Ubah
               </VBtn>
-              <VBtn size="small" variant="text" color="error" @click="openDeleteDialog(item)">
+              <VBtn v-if="canDelete" size="small" variant="text" color="error" @click="openDeleteDialog(item)">
                 Hapus
               </VBtn>
             </td>
@@ -367,7 +388,7 @@ onMounted(async () => {
                 :items="roleOptions"
                 item-title="title"
                 item-value="value"
-                clearable
+              
               />
             </VCol>
             <VCol cols="12" md="6">
@@ -404,9 +425,49 @@ onMounted(async () => {
     </VCard>
   </VDialog>
 
+  <VDialog v-model="isDetailDialogOpen" max-width="520">
+    <VCard>
+      <VCardItem title="Detail Pengguna" />
+      <VCardText>
+        <VTable density="compact">
+          <tbody>
+            <tr>
+              <td>Username</td>
+              <td class="text-end font-weight-medium">{{ detailItem?.username || '-' }}</td>
+            </tr>
+            <tr>
+              <td>Email</td>
+              <td class="text-end">{{ detailItem?.email || '-' }}</td>
+            </tr>
+            <tr>
+              <td>Peran</td>
+              <td class="text-end">{{ detailItem?.role?.name || '-' }}</td>
+            </tr>
+            <tr>
+              <td>Status</td>
+              <td class="text-end">{{ detailItem?.status || '-' }}</td>
+            </tr>
+            <tr>
+              <td>Dibuat</td>
+              <td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td>
+            </tr>
+            <tr>
+              <td>Diubah</td>
+              <td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td>
+            </tr>
+          </tbody>
+        </VTable>
+      </VCardText>
+      <VCardActions class="justify-end">
+        <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">
     {{ snackbar.text }}
   </VSnackbar>
 </template>
+
 
 

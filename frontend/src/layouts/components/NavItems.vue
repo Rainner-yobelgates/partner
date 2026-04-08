@@ -54,6 +54,22 @@ const authStore = useAuthStore()
     }"
   />
   <VerticalNavLink
+    v-if="authStore.hasPermission('order:read')"
+    :item="{
+      title: 'Pesanan',
+      icon: 'ri-file-add-line',
+      to: '/orders',
+    }"
+  />
+  <VerticalNavLink
+    v-if="authStore.hasPermission('trip_sheet:read')"
+    :item="{
+      title: 'Trip Sheet',
+      icon: 'ri-clipboard-line',
+      to: '/trip-sheets',
+    }"
+  />
+  <VerticalNavLink
     v-if="authStore.hasPermission('shuttle:read')"
     :item="{
       title: 'Antar Jemput',

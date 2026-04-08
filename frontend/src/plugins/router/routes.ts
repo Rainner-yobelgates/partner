@@ -51,6 +51,16 @@ export const routes = [
         meta: { requiresAuth: true, permission: 'contract:read' },
       },
       {
+        path: 'orders',
+        component: () => import('@/pages/orders.vue'),
+        meta: { requiresAuth: true, permission: 'order:read' },
+      },
+      {
+        path: 'trip-sheets',
+        component: () => import('@/pages/trip-sheets.vue'),
+        meta: { requiresAuth: true, permission: 'trip_sheet:read' },
+      },
+      {
         path: 'shuttles',
         component: () => import('@/pages/shuttles.vue'),
         meta: { requiresAuth: true, permission: 'shuttle:read' },
@@ -70,6 +80,14 @@ export const routes = [
         path: 'login',
         component: () => import('@/pages/login.vue'),
         meta: { guestOnly: true },
+      },
+      {
+        path: 'trip-sheets/:orderNumber/:uuid',
+        component: () => import('@/pages/trip-sheet.vue'),
+      },
+      {
+        path: 'trip-sheets/:uuid',
+        component: () => import('@/pages/trip-sheet.vue'),
       },
       {
         path: '/:pathMatch(.*)*',

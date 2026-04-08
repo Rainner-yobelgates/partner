@@ -31,6 +31,8 @@ export class VehicleService {
           OR: [
             { plate_number: { contains: query.search, mode: 'insensitive' as const } },
             { hull_number: { contains: query.search, mode: 'insensitive' as const } },
+            { frame_number: { contains: query.search, mode: 'insensitive' as const } },
+            { machine_number: { contains: query.search, mode: 'insensitive' as const } },
             { brand: { contains: query.search, mode: 'insensitive' as const } },
             { model: { contains: query.search, mode: 'insensitive' as const } },
           ],
@@ -85,6 +87,8 @@ export class VehicleService {
           vehicles_uuid: true,
           plate_number: true,
           hull_number: true,
+          frame_number: true,
+          machine_number: true,
           vehicle_type: true,
           brand: true,
           model: true,
@@ -149,24 +153,13 @@ export class VehicleService {
         }
       }
 
-      // Cek hull_number duplikat jika diberikan
-      if (dto.hull_number) {
-        const exists = await this.prisma.db.vehicle.findFirst({
-          where: { hull_number: dto.hull_number, deleted_at: null },
-        });
-        if (exists) {
-          throw new ConflictException({
-            success: false,
-            message: `Kendaraan dengan nomor rangka "${dto.hull_number}" sudah terdaftar`,
-          });
-        }
-      }
-
       const userId = normalizeUserId(user.id);
 
       const vehicle = await this.prisma.db.vehicle.create({
         data: {
           plate_number: dto.plate_number,
+          frame_number: dto.frame_number,
+          machine_number: dto.machine_number,
           hull_number: dto.hull_number,
           vehicle_type: dto.vehicle_type,
           brand: dto.brand,
@@ -220,23 +213,6 @@ export class VehicleService {
         }
       }
 
-      // Cek hull_number duplikat (kecuali kendaraan ini sendiri)
-      if (dto.hull_number && dto.hull_number !== vehicle.hull_number) {
-        const exists = await this.prisma.db.vehicle.findFirst({
-          where: {
-            hull_number: dto.hull_number,
-            deleted_at: null,
-            NOT: { id: BigInt(id) },
-          },
-        });
-        if (exists) {
-          throw new ConflictException({
-            success: false,
-            message: `Kendaraan dengan nomor rangka "${dto.hull_number}" sudah terdaftar`,
-          });
-        }
-      }
-
       const userId = normalizeUserId(user.id);
 
       const updated = await this.prisma.db.vehicle.update({
@@ -244,6 +220,8 @@ export class VehicleService {
         data: {
           ...(dto.plate_number !== undefined && { plate_number: dto.plate_number }),
           ...(dto.hull_number !== undefined && { hull_number: dto.hull_number }),
+          ...(dto.frame_number !== undefined && { frame_number: dto.frame_number }),
+          ...(dto.machine_number !== undefined && { machine_number: dto.machine_number }),
           ...(dto.vehicle_type !== undefined && { vehicle_type: dto.vehicle_type }),
           ...(dto.brand !== undefined && { brand: dto.brand }),
           ...(dto.model !== undefined && { model: dto.model }),

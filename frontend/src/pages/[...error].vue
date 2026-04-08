@@ -18,11 +18,11 @@ const authThemeMask = computed(() => {
   <div class="misc-wrapper">
     <ErrorHeader
       status-code="404"
-      title="Page Not Found ⚠️"
+      title="Page Not Found âš ï¸"
       description="We couldn't find the page you are looking for."
     />
 
-    <!-- 👉 Image -->
+    <!-- ðŸ‘‰ Image -->
     <div class="misc-avatar w-100 text-center">
       <VImg
         :src="misc404"
@@ -38,7 +38,7 @@ const authThemeMask = computed(() => {
       </VBtn>
     </div>
 
-    <!-- 👉 Footer -->
+    <!-- ðŸ‘‰ Footer -->
     <VImg
       :src="tree"
       class="misc-footer-tree d-none d-md-block"

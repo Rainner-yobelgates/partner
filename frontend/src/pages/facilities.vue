@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ApiError } from '@/services/http'
+import { useAuthStore } from '@/stores/auth'
 import { facilityMasterService, type FacilityItem, type MasterStatus } from '@/services/masters'
 
 type FacilityForm = {
@@ -20,7 +21,15 @@ const isLoading = ref(false)
 const isSubmitting = ref(false)
 const isFormDialogOpen = ref(false)
 const isDeleteDialogOpen = ref(false)
+const isDetailDialogOpen = ref(false)
 const editedItem = ref<FacilityItem | null>(null)
+const detailItem = ref<FacilityItem | null>(null)
+const authStore = useAuthStore()
+
+const canCreate = computed(() => authStore.hasPermission('facility:create'))
+const canUpdate = computed(() => authStore.hasPermission('facility:update'))
+const canDelete = computed(() => authStore.hasPermission('facility:delete'))
+const canDetail = computed(() => authStore.hasPermission('facility:detail'))
 
 const form = ref<FacilityForm>({
   name: '',
@@ -65,6 +74,7 @@ const fetchFacilities = async () => {
     total.value = response.total
   }
   catch (error) {
+    console.error('[pages/facilities.vue]', error)
     showToast(getErrorMessage(error), 'error')
   }
   finally {
@@ -132,6 +142,7 @@ const submitForm = async () => {
     await fetchFacilities()
   }
   catch (error) {
+    console.error('[pages/facilities.vue]', error)
     showToast(getErrorMessage(error), 'error')
   }
   finally {
@@ -142,6 +153,11 @@ const submitForm = async () => {
 const openDeleteDialog = (item: FacilityItem) => {
   editedItem.value = item
   isDeleteDialogOpen.value = true
+}
+
+const openDetailDialog = (item: FacilityItem) => {
+  detailItem.value = item
+  isDetailDialogOpen.value = true
 }
 
 const confirmDelete = async () => {
@@ -161,6 +177,7 @@ const confirmDelete = async () => {
     await fetchFacilities()
   }
   catch (error) {
+    console.error('[pages/facilities.vue]', error)
     showToast(getErrorMessage(error), 'error')
   }
   finally {
@@ -183,7 +200,7 @@ onMounted(fetchFacilities)
       <template #title>
         <div class="d-flex align-center justify-space-between flex-wrap gap-4">
           <span class="text-h6">Data Fasilitas</span>
-          <VBtn color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">Tambah Fasilitas</VBtn>
+          <VBtn v-if="canCreate" color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">Tambah Fasilitas</VBtn>
         </div>
       </template>
     </VCardItem>
@@ -191,7 +208,7 @@ onMounted(fetchFacilities)
     <VCardText>
       <VRow>
         <VCol cols="12" md="5">
-          <VTextField v-model="search" label="Cari fasilitas" placeholder="Nama atau deskripsi" clearable prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" />
+          <VTextField v-model="search" label="Cari fasilitas" placeholder="Nama atau deskripsi" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" />
         </VCol>
         <VCol cols="12" md="2">
           <VBtn block class="mt-md-1" color="secondary" @click="onSearch">Cari</VBtn>
@@ -253,8 +270,9 @@ onMounted(fetchFacilities)
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
             <td>{{ formatDate(item.updated_at) }}</td>
             <td class="text-end">
-              <VBtn size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
-              <VBtn size="small" variant="text" color="error" @click="openDeleteDialog(item)">Hapus</VBtn>
+              <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
+              <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
+              <VBtn v-if="canDelete" size="small" variant="text" color="error" @click="openDeleteDialog(item)">Hapus</VBtn>
             </td>
           </tr>
         </tbody>
@@ -304,7 +322,29 @@ onMounted(fetchFacilities)
     </VCard>
   </VDialog>
 
+  <VDialog v-model="isDetailDialogOpen" max-width="520">
+    <VCard>
+      <VCardItem title="Detail Fasilitas" />
+      <VCardText>
+        <VTable density="compact">
+          <tbody>
+            <tr><td>Nama</td><td class="text-end font-weight-medium">{{ detailItem?.name || '-' }}</td></tr>
+            <tr><td>Biaya</td><td class="text-end">{{ detailItem?.cost ?? '-' }}</td></tr>
+            <tr><td>Deskripsi</td><td class="text-end">{{ detailItem?.description || '-' }}</td></tr>
+            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
+            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
+            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
+          </tbody>
+        </VTable>
+      </VCardText>
+      <VCardActions class="justify-end">
+        <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
+
 
 
