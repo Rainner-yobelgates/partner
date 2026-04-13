@@ -4,11 +4,10 @@ import {
   IsOptional,
   IsEnum,
   IsNumberString,
-  IsNumber,
   IsNotEmpty,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 import { Status } from 'generated/prisma/enums';
+import { IsMoneyAmountRequired } from 'src/utils/money-field.decorator';
 
 // ──────────────────────────────────────────
 // CREATE DTO
@@ -19,13 +18,8 @@ export class CreateFacilityDto {
   @IsNotEmpty()
   name!: string;
 
-  @ApiProperty({
-    description: 'Biaya fasilitas dalam rupiah',
-    example: 50000.0,
-  })
-  @Type(() => Number)
-  @IsNumber()
-  cost!: number;
+  @IsMoneyAmountRequired('Biaya fasilitas', '50000.00')
+  cost!: string;
 
   @ApiPropertyOptional({
     description: 'Deskripsi fasilitas',

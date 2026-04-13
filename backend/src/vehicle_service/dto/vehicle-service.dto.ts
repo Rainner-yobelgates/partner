@@ -6,8 +6,8 @@ import {
   IsNumberString,
   IsDateString,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 import { ServiceType, Status } from 'generated/prisma/enums';
+import { IsMoneyAmountOptional } from 'src/utils/money-field.decorator';
 
 // ──────────────────────────────────────────
 // CREATE DTO
@@ -35,13 +35,8 @@ export class CreateVehicleServiceDto {
   @IsEnum(ServiceType)
   service_type?: ServiceType;
 
-  @ApiPropertyOptional({
-    description: 'Biaya servis dalam rupiah',
-    example: 350000.0,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  cost?: number;
+  @IsMoneyAmountOptional('Biaya servis', '350000.00')
+  cost?: string;
 
   @ApiPropertyOptional({
     description: 'Keterangan atau deskripsi servis',

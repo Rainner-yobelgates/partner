@@ -8,6 +8,8 @@ import { CreateFacilityDto, QueryFacilityDto, UpdateFacilityDto } from './dto/fa
 import { CurrentUserType } from 'src/decorator/current-user.decorator';
 import { normalizeUserId } from 'src/utils/normalize-user-id.util';
 import { Status } from 'generated/prisma/enums';
+import { decimalToMoneyString, toPrismaDecimal } from 'src/utils/money.util';
+import { normalizePrismaCount } from 'src/utils/pagination-total.util';
 
 @Injectable()
 export class FacilityService {
@@ -35,7 +37,7 @@ export class FacilityService {
         }),
       };
 
-      const [data, total] = await this.prisma.db.$transaction([
+      const [data, totalRaw] = await this.prisma.db.$transaction([
         this.prisma.db.facility.findMany({
           where,
           skip,
@@ -55,13 +57,15 @@ export class FacilityService {
         this.prisma.db.facility.count({ where }),
       ]);
 
+      const total = normalizePrismaCount(totalRaw as number | bigint);
+
       return {
         success: true,
         message: 'Data fasilitas berhasil diambil',
         data: data.map((f) => ({
           ...f,
           id: f.id.toString(),
-          cost: f.cost ? Number(f.cost) : null,
+          cost: decimalToMoneyString(f.cost),
         })),
         total,
         page,
@@ -107,7 +111,7 @@ export class FacilityService {
         data: {
           ...facility,
           id: facility.id.toString(),
-          cost: facility.cost ? Number(facility.cost) : null,
+          cost: decimalToMoneyString(facility.cost),
           created_by: facility.created_by?.toString() ?? null,
           updated_by: facility.updated_by?.toString() ?? null,
         },
@@ -141,7 +145,7 @@ export class FacilityService {
       const facility = await this.prisma.db.facility.create({
         data: {
           name,
-          cost: dto.cost,
+          cost: toPrismaDecimal(dto.cost)!,
           description: dto.description,
           status: dto.status ?? Status.ACTIVE,
           created_by: userId,
@@ -154,7 +158,7 @@ export class FacilityService {
         data: {
           ...facility,
           id: facility.id.toString(),
-          cost: facility.cost ? Number(facility.cost) : null,
+          cost: decimalToMoneyString(facility.cost),
         },
       };
     } catch (error: unknown) {
@@ -205,7 +209,7 @@ export class FacilityService {
         where: { id: BigInt(id) },
         data: {
           ...(dto.name !== undefined && { name: dto.name.trim() }),
-          ...(dto.cost !== undefined && { cost: dto.cost }),
+          ...(dto.cost !== undefined && { cost: toPrismaDecimal(dto.cost)! }),
           ...(dto.description !== undefined && { description: dto.description }),
           ...(dto.status !== undefined && { status: dto.status }),
           updated_by: userId,
@@ -218,7 +222,7 @@ export class FacilityService {
         data: {
           ...updated,
           id: updated.id.toString(),
-          cost: updated.cost ? Number(updated.cost) : null,
+          cost: decimalToMoneyString(updated.cost),
         },
       };
     } catch (error: unknown) {

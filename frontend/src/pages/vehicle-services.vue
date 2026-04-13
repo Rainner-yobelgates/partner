@@ -9,6 +9,7 @@ import {
   type VehicleServiceItem,
 } from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
+import { blockKeysInvalidNumberMoneyInput } from '@/utils/money-input'
 
 type VehicleServiceForm = {
   vehicle_id: string
@@ -127,10 +128,10 @@ const submitForm = async () => {
   try {
     if (editedItem.value) {
       await vehicleServiceMasterService.update(editedItem.value.id, payload)
-      showToast('Layanan kendaraan berhasil diperbarui')
+      showToast('Pemeliharaan kendaraan berhasil diperbarui')
     } else {
       await vehicleServiceMasterService.create(payload)
-      showToast('Layanan kendaraan berhasil dibuat')
+      showToast('Pemeliharaan kendaraan berhasil dibuat')
       page.value = 1
     }
     isFormDialogOpen.value = false
@@ -151,7 +152,7 @@ const confirmDelete = async () => {
   try {
     await vehicleServiceMasterService.remove(editedItem.value.id)
     isDeleteDialogOpen.value = false
-    showToast('Layanan kendaraan berhasil dihapus')
+    showToast('Pemeliharaan kendaraan berhasil dihapus')
     if (rows.value.length === 1 && page.value > 1) page.value -= 1
     await fetchVehicleServices()
   }
@@ -172,14 +173,14 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
     <VCardItem>
       <template #title>
         <div class="d-flex align-center justify-space-between flex-wrap gap-4">
-          <span class="text-h6">Data Layanan Kendaraan</span>
-          <VBtn v-if="canCreate" color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">Tambah Layanan</VBtn>
+          <span class="text-h6">Data Pemeliharaan Kendaraan</span>
+          <VBtn v-if="canCreate" color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">Tambah Pemeliharaan</VBtn>
         </div>
       </template>
     </VCardItem>
     <VCardText>
       <VRow>
-        <VCol cols="12" md="5"><VTextField v-model="search" label="Cari layanan" placeholder="Deskripsi" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" /></VCol>
+        <VCol cols="12" md="5"><VTextField v-model="search" label="Cari pemeliharaan" placeholder="Deskripsi" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" /></VCol>
         <VCol cols="12" md="2"><VBtn block class="mt-md-1" color="secondary" @click="onSearch">Cari</VBtn></VCol>
         <VCol cols="6" md="2"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title:'Tanggal Servis', value:'service_date'},{ title:'Dibuat', value:'created_at'},{ title:'Diubah', value:'updated_at'}]" item-title="title" item-value="value" /></VCol>
         <VCol cols="6" md="1"><VSelect v-model="sortOrder" label="Urutan" :items="[{ title:'DESC', value:'desc'},{ title:'ASC', value:'asc'}]" item-title="title" item-value="value" /></VCol>
@@ -194,7 +195,7 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
           <tr><th>Kendaraan</th><th>Tanggal Servis</th><th>Tipe</th><th>Biaya</th><th>Deskripsi</th><th>Status</th><th class="text-end">Aksi</th></tr>
         </thead>
         <tbody>
-          <tr v-if="!isLoading && rows.length===0"><td colspan="7" class="text-center text-medium-emphasis py-6">Data layanan kendaraan belum ada.</td></tr>
+          <tr v-if="!isLoading && rows.length===0"><td colspan="7" class="text-center text-medium-emphasis py-6">Data pemeliharaan kendaraan belum ada.</td></tr>
           <tr v-for="item in rows" :key="item.id">
             <td>{{ item.vehicle?.plate_number || '-' }}</td>
             <td>{{ formatDate(item.service_date) }}</td>
@@ -216,15 +217,26 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
 
   <VDialog v-model="isFormDialogOpen" max-width="840">
     <VCard>
-      <VCardItem :title="isEditMode ? 'Ubah Layanan Kendaraan' : 'Tambah Layanan Kendaraan'" />
+      <VCardItem :title="isEditMode ? 'Ubah Pemeliharaan Kendaraan' : 'Tambah Pemeliharaan Kendaraan'" />
       <VCardText>
         <VForm @submit.prevent="submitForm">
           <VRow>
             <VCol cols="12" md="6"><VSelect v-model="form.vehicle_id" label="Kendaraan" :items="vehicleOptions" item-title="title" item-value="value" /></VCol>
             <VCol cols="12" md="6"><VTextField v-model="form.service_date" type="datetime-local" label="Tanggal Servis" /></VCol>
-            <VCol cols="12" md="6"><VSelect v-model="form.service_type" label="Tipe Layanan" :items="['MAINTENANCE','REPAIR','OIL_CHANGE','INSPECTION']" /></VCol>
+            <VCol cols="12" md="6"><VSelect v-model="form.service_type" label="Tipe Pemeliharaan" :items="['MAINTENANCE','REPAIR','OIL_CHANGE','INSPECTION']" /></VCol>
             <VCol cols="12" md="6"><VSelect v-model="form.status" label="Status" :items="['ACTIVE','INACTIVE']" /></VCol>
-            <VCol cols="12" md="6"><VTextField v-model.number="form.cost" label="Biaya" type="number" /></VCol>
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model.number="form.cost"
+                label="Biaya"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                autocomplete="off"
+                @keydown="blockKeysInvalidNumberMoneyInput"
+              />
+            </VCol>
             <VCol cols="12"><VTextarea v-model="form.description" label="Deskripsi" rows="2" /></VCol>
           </VRow>
         </VForm>
@@ -233,11 +245,11 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
     </VCard>
   </VDialog>
 
-  <VDialog v-model="isDeleteDialogOpen" max-width="420"><VCard><VCardItem title="Hapus Layanan Kendaraan" /><VCardText>Yakin hapus data layanan <strong>{{ editedItem?.service_type || '-' }}</strong>?</VCardText><VCardActions class="justify-end"><VBtn variant="text" @click="isDeleteDialogOpen=false">Batal</VBtn><VBtn color="error" :loading="isSubmitting" :disabled="isSubmitting" @click="confirmDelete">Hapus</VBtn></VCardActions></VCard></VDialog>
+  <VDialog v-model="isDeleteDialogOpen" max-width="420"><VCard><VCardItem title="Hapus Pemeliharaan Kendaraan" /><VCardText>Yakin hapus data pemeliharaan <strong>{{ editedItem?.service_type || '-' }}</strong>?</VCardText><VCardActions class="justify-end"><VBtn variant="text" @click="isDeleteDialogOpen=false">Batal</VBtn><VBtn color="error" :loading="isSubmitting" :disabled="isSubmitting" @click="confirmDelete">Hapus</VBtn></VCardActions></VCard></VDialog>
 
   <VDialog v-model="isDetailDialogOpen" max-width="600">
     <VCard>
-      <VCardItem title="Detail Layanan Kendaraan" />
+      <VCardItem title="Detail Pemeliharaan Kendaraan" />
       <VCardText>
         <VTable density="compact">
           <tbody>

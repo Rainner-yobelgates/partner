@@ -1,21 +1,21 @@
-import { ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   IsOptional,
   IsEnum,
   IsNumberString,
   IsDateString,
+  IsString,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 import { Status } from 'generated/prisma/enums';
+import { IsMoneyAmountOptional } from 'src/utils/money-field.decorator';
 
 // ──────────────────────────────────────────
 // CREATE DTO
 // ──────────────────────────────────────────
 export class CreateShuttleDto {
-  @ApiPropertyOptional({ description: 'ID kontrak yang terkait', example: '1' })
-  @IsOptional()
+  @ApiProperty({ description: 'ID klien pemilik pemeliharaan antar jemput', example: '1' })
   @IsNumberString()
-  contract_id?: string;
+  client_id!: string;
 
   @ApiPropertyOptional({ description: 'ID kendaraan yang digunakan', example: '2' })
   @IsOptional()
@@ -27,13 +27,8 @@ export class CreateShuttleDto {
   @IsNumberString()
   route_id?: string;
 
-  @ApiPropertyOptional({
-    description: 'Insentif kru dalam rupiah',
-    example: 150000.0,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  crew_incentive?: number;
+  @IsMoneyAmountOptional('Insentif kru', '150000.00')
+  crew_incentive?: string;
 
   @ApiPropertyOptional({
     description: 'Tanggal jadwal shuttle (ISO 8601)',
@@ -43,20 +38,14 @@ export class CreateShuttleDto {
   @IsDateString()
   scheduled_date?: string;
 
-  @ApiPropertyOptional({ description: 'Biaya bahan bakar dalam rupiah', example: 200000.0 })
-  @IsOptional()
-  @Type(() => Number)
-  fuel?: number;
+  @IsMoneyAmountOptional('Biaya bahan bakar', '200000.00')
+  fuel?: string;
 
-  @ApiPropertyOptional({ description: 'Biaya tol dalam rupiah', example: 50000.0 })
-  @IsOptional()
-  @Type(() => Number)
-  toll_fee?: number;
+  @IsMoneyAmountOptional('Biaya tol', '50000.00')
+  toll_fee?: string;
 
-  @ApiPropertyOptional({ description: 'Biaya lainnya dalam rupiah', example: 25000.0 })
-  @IsOptional()
-  @Type(() => Number)
-  others?: number;
+  @IsMoneyAmountOptional('Biaya lainnya', '0.00')
+  others?: string;
 
   @ApiPropertyOptional({
     description: 'Status shuttle',
@@ -89,6 +78,7 @@ export class QueryShuttleDto {
 
   @ApiPropertyOptional({ description: 'Field untuk sorting', example: 'scheduled_date' })
   @IsOptional()
+  @IsString()
   sortBy?: string;
 
   @ApiPropertyOptional({
@@ -100,10 +90,10 @@ export class QueryShuttleDto {
   @IsEnum(['asc', 'desc'])
   sortOrder?: 'asc' | 'desc';
 
-  @ApiPropertyOptional({ description: 'Filter berdasarkan ID kontrak', example: '1' })
+  @ApiPropertyOptional({ description: 'Filter berdasarkan ID klien', example: '1' })
   @IsOptional()
   @IsNumberString()
-  contract_id?: string;
+  client_id?: string;
 
   @ApiPropertyOptional({ description: 'Filter berdasarkan ID kendaraan', example: '2' })
   @IsOptional()

@@ -1,16 +1,18 @@
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
-  IsString,
-  IsOptional,
-  IsEnum,
-  IsNumberString,  IsEmail,
-  IsDateString,
-  IsNumber,
   IsArray,
+  IsDateString,
+  IsEmail,
+  IsEnum,
+  IsNumber,
+  IsNumberString,
+  IsOptional,
+  IsString,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 import { OrderStatus, Status } from 'generated/prisma/enums';
+import { IsMoneyAmountOptional } from 'src/utils/money-field.decorator';
 
 export class CreateOrderVehicleDto {
   @ApiProperty({ description: 'ID kendaraan', example: '1' })
@@ -100,11 +102,8 @@ export class CreateOrderDto {
   @IsNumber()
   total_vehicles?: number;
 
-  @ApiPropertyOptional({ description: 'Total amount', example: 1500000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  total_amount?: number;
+  @IsMoneyAmountOptional('Total nilai order', '1500000.00')
+  total_amount?: string;
 
   @ApiPropertyOptional({ description: 'Status order', enum: OrderStatus })
   @IsOptional()
@@ -141,7 +140,7 @@ export class QueryOrderDto {
   perPage?: string;
 
   @ApiPropertyOptional({
-    description: 'Cari berdasarkan order_number / customer_name / customer_phone / customer_email',
+    description: 'Cari berdasarkan order_number / customer / email / telepon',
     example: 'ORD-2025',
   })
   @IsOptional()
@@ -177,15 +176,4 @@ export class QueryOrderDto {
   @IsDateString()
   date_to?: string;
 }
-
-
-
-
-
-
-
-
-
-
-
 

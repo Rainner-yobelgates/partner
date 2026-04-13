@@ -1,22 +1,41 @@
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
-  IsString,
-  IsOptional,
-  IsEnum,
-  IsNumberString,
   IsEmail,
-  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNumberString,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
 } from 'class-validator';
 import { Status } from 'generated/prisma/enums';
+import { IsMoneyAmountOptional } from 'src/utils/money-field.decorator';
 
-// ──────────────────────────────────────────
-// CREATE DTO
-// ──────────────────────────────────────────
 export class CreateContractDto {
   @ApiPropertyOptional({ description: 'Nomor kontrak', example: 'KTR-2024-001' })
   @IsOptional()
   @IsString()
   contract_number?: string;
+
+  @ApiProperty({ description: 'ID client', example: '1' })
+  @IsNumberString()
+  client_id!: string;
+
+  @ApiProperty({ description: 'Bulan kontrak (1-12)', example: 4 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  contract_month!: number;
+
+  @ApiProperty({ description: 'Tahun kontrak (YYYY)', example: 2026 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  contract_year!: number;
 
   @ApiPropertyOptional({ description: 'Nama contact person', example: 'Budi Santoso' })
   @IsOptional()
@@ -38,21 +57,8 @@ export class CreateContractDto {
   @IsString()
   address?: string;
 
-  @ApiPropertyOptional({
-    description: 'Tanggal mulai kontrak (ISO 8601)',
-    example: '2024-01-01T00:00:00.000Z',
-  })
-  @IsOptional()
-  @IsDateString()
-  start_date?: string;
-
-  @ApiPropertyOptional({
-    description: 'Tanggal berakhir kontrak (ISO 8601)',
-    example: '2024-12-31T23:59:59.999Z',
-  })
-  @IsOptional()
-  @IsDateString()
-  end_date?: string;
+  @IsMoneyAmountOptional('Nilai kontrak', '3500000.00')
+  contract_value?: string;
 
   @ApiPropertyOptional({
     description: 'Status kontrak',
@@ -64,14 +70,8 @@ export class CreateContractDto {
   status?: Status;
 }
 
-// ──────────────────────────────────────────
-// UPDATE DTO
-// ──────────────────────────────────────────
 export class UpdateContractDto extends PartialType(CreateContractDto) {}
 
-// ──────────────────────────────────────────
-// QUERY DTO
-// ──────────────────────────────────────────
 export class QueryContractDto {
   @ApiPropertyOptional({ description: 'Halaman saat ini', example: '1' })
   @IsOptional()
@@ -113,11 +113,18 @@ export class QueryContractDto {
   @IsEnum(Status)
   status?: Status;
 
-  @ApiPropertyOptional({
-    description: 'Filter kontrak aktif pada tanggal tertentu (ISO 8601)',
-    example: '2024-06-01T00:00:00.000Z',
-  })
+  @ApiPropertyOptional({ description: 'Filter berdasarkan client id', example: '1' })
   @IsOptional()
-  @IsDateString()
-  active_on?: string;
+  @IsNumberString()
+  client_id?: string;
+
+  @ApiPropertyOptional({ description: 'Filter berdasarkan bulan kontrak', example: '4' })
+  @IsOptional()
+  @IsNumberString()
+  contract_month?: string;
+
+  @ApiPropertyOptional({ description: 'Filter berdasarkan tahun kontrak', example: '2026' })
+  @IsOptional()
+  @IsNumberString()
+  contract_year?: string;
 }

@@ -6,6 +6,10 @@ export type MasterListQuery = {
   search?: string
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
+  /** Filter tambahan untuk resource yang mendukung (mis. kontrak). */
+  client_id?: string
+  contract_month?: string
+  contract_year?: string
 }
 
 export type MasterListResponse<TItem> = {
@@ -52,6 +56,13 @@ const buildQueryString = (query: MasterListQuery) => {
   if (query.sortOrder)
     params.set('sortOrder', query.sortOrder)
 
+  if (query.client_id)
+    params.set('client_id', query.client_id)
+  if (query.contract_month)
+    params.set('contract_month', query.contract_month)
+  if (query.contract_year)
+    params.set('contract_year', query.contract_year)
+
   return params.toString()
 }
 
@@ -61,7 +72,7 @@ export function createMasterCrudService<TItem, TCreatePayload, TUpdatePayload = 
   return {
     list(query) {
       const qs = buildQueryString(query)
-      return request<MasterListResponse<TItem>>(`/${resourcePath}?${qs}`)
+      return request<MasterListResponse<TItem>>(`/${resourcePath}?${qs}`, { method: 'GET' })
     },
     detail(uuid) {
       return request<MasterDetailResponse<TItem>>(`/${resourcePath}/${uuid}`)

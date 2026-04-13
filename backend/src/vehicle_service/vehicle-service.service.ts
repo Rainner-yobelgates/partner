@@ -10,6 +10,8 @@ import {
 } from './dto/vehicle-service.dto';
 import { CurrentUserType } from 'src/decorator/current-user.decorator';
 import { normalizeUserId } from 'src/utils/normalize-user-id.util';
+import { decimalToMoneyString, toPrismaDecimal } from 'src/utils/money.util';
+import { normalizePrismaCount } from 'src/utils/pagination-total.util';
 
 @Injectable()
 export class VehicleServiceService {
@@ -42,7 +44,7 @@ export class VehicleServiceService {
         }),
       };
 
-      const [data, total] = await this.prisma.db.$transaction([
+      const [data, totalRaw] = await this.prisma.db.$transaction([
         this.prisma.db.vehicleService.findMany({
           where,
           skip,
@@ -71,6 +73,8 @@ export class VehicleServiceService {
         this.prisma.db.vehicleService.count({ where }),
       ]);
 
+      const total = normalizePrismaCount(totalRaw as number | bigint);
+
       return {
         success: true,
         message: 'Data servis kendaraan berhasil diambil',
@@ -78,7 +82,7 @@ export class VehicleServiceService {
           ...s,
           id: s.id.toString(),
           vehicle_id: s.vehicle_id?.toString() ?? null,
-          cost: s.cost ? Number(s.cost) : null,
+          cost: decimalToMoneyString(s.cost),
           vehicle: s.vehicle
             ? { ...s.vehicle, id: s.vehicle.id.toString() }
             : null,
@@ -139,7 +143,7 @@ export class VehicleServiceService {
           ...record,
           id: record.id.toString(),
           vehicle_id: record.vehicle_id?.toString() ?? null,
-          cost: record.cost ? Number(record.cost) : null,
+          cost: decimalToMoneyString(record.cost),
           created_by: record.created_by?.toString() ?? null,
           updated_by: record.updated_by?.toString() ?? null,
           vehicle: record.vehicle
@@ -178,7 +182,7 @@ export class VehicleServiceService {
           ...(dto.vehicle_id && { vehicle_id: BigInt(dto.vehicle_id) }),
           service_date: dto.service_date ? new Date(dto.service_date) : undefined,
           service_type: dto.service_type,
-          cost: dto.cost,
+          cost: toPrismaDecimal(dto.cost),
           description: dto.description,
           status: dto.status,
           created_by: userId,
@@ -192,7 +196,7 @@ export class VehicleServiceService {
           ...record,
           id: record.id.toString(),
           vehicle_id: record.vehicle_id?.toString() ?? null,
-          cost: record.cost ? Number(record.cost) : null,
+          cost: decimalToMoneyString(record.cost),
         },
       };
     } catch (error: unknown) {
@@ -242,7 +246,7 @@ export class VehicleServiceService {
             service_date: dto.service_date ? new Date(dto.service_date) : null,
           }),
           ...(dto.service_type !== undefined && { service_type: dto.service_type }),
-          ...(dto.cost !== undefined && { cost: dto.cost }),
+          ...(dto.cost !== undefined && { cost: toPrismaDecimal(dto.cost) }),
           ...(dto.description !== undefined && { description: dto.description }),
           ...(dto.status !== undefined && { status: dto.status }),
           updated_by: userId,
@@ -256,7 +260,7 @@ export class VehicleServiceService {
           ...updated,
           id: updated.id.toString(),
           vehicle_id: updated.vehicle_id?.toString() ?? null,
-          cost: updated.cost ? Number(updated.cost) : null,
+          cost: decimalToMoneyString(updated.cost),
         },
       };
     } catch (error: unknown) {

@@ -8,6 +8,17 @@ type ApiErrorPayload = {
   [key: string]: unknown
 }
 
+function payloadToMessage(payload: ApiErrorPayload | undefined, fallback: string): string {
+  const m = payload?.message
+  if (Array.isArray(m))
+    return m.filter(Boolean).join(' ')
+  if (typeof m === 'string' && m.trim() !== '')
+    return m
+  if (typeof payload?.error === 'string' && payload.error.trim() !== '')
+    return payload.error
+  return fallback
+}
+
 export class ApiError extends Error {
   status: number
   payload?: ApiErrorPayload
@@ -20,7 +31,8 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000'
+const rawBase = import.meta.env.VITE_API_BASE_URL
+const API_BASE_URL = (typeof rawBase === 'string' && rawBase.trim() !== '' ? rawBase.trim() : 'http://localhost:3000').replace(/\/$/, '')
 
 const getAccessToken = () => localStorage.getItem('access_token')
 
@@ -63,22 +75,34 @@ export async function request<TResponse>(path: string, options: RequestOptions =
   try {
     const config: AxiosRequestConfig = {
       url: path,
-      method: options.method as AxiosRequestConfig['method'],
+      method: (options.method as AxiosRequestConfig['method']) ?? 'GET',
       headers: options.headers as AxiosRequestConfig['headers'],
       data: options.body,
     }
 
     const response = await httpClient.request<TResponse>(config)
-    const payload = response.data as ApiErrorPayload
+    const raw = response.data
+
+    if (typeof raw === 'string' && raw.trimStart().startsWith('<')) {
+      throw new ApiError(
+        'Server mengembalikan HTML (bukan JSON). Periksa VITE_API_BASE_URL agar mengarah ke backend NestJS, bukan ke dev server Vite.',
+        response.status,
+      )
+    }
+
+    const payload = raw as ApiErrorPayload
 
     if (payload && typeof payload === 'object' && payload.success === false) {
-      const message = payload.message ?? payload.error ?? 'Request failed'
+      const message = payloadToMessage(payload, 'Request failed')
       throw new ApiError(message, response.status, payload)
     }
 
-    return response.data
+    return raw
   }
   catch (error) {
+    if (error instanceof ApiError)
+      throw error
+
     if (axios.isAxiosError<ApiErrorPayload>(error)) {
       if (!error.response) {
         throw new ApiError('Tidak bisa terhubung ke server API. Cek backend berjalan dan CORS aktif.', 0)
@@ -86,11 +110,13 @@ export async function request<TResponse>(path: string, options: RequestOptions =
 
       const payload = error.response?.data
       const status = error.response?.status ?? 500
-      const message = payload?.message ?? payload?.error ?? error.message ?? 'Request failed'
-      throw new ApiError(message, status, payload)
+      const message = typeof payload === 'object' && payload !== null
+        ? payloadToMessage(payload, error.message ?? 'Request failed')
+        : (error.message ?? 'Request failed')
+      throw new ApiError(message, status, typeof payload === 'object' && payload !== null ? payload : undefined)
     }
 
-    throw new ApiError('Request failed', 500)
+    throw error instanceof Error ? error : new ApiError('Request failed', 500)
   }
 }
 

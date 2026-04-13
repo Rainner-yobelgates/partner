@@ -21,6 +21,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { CreateOrderDto, UpdateOrderDto, QueryOrderDto } from './dto/order.dto';
+import { QueryOrderRecapDto } from './dto/order-recap.dto';
 import { OrderService } from './order.service';
 import { JwtAuthGuard } from 'src/guard/jwt-auth.guard';
 import { Permission } from 'src/decorator/permission.decorator';
@@ -53,6 +54,20 @@ export class OrderController {
   @ApiResponse({ status: 500, description: 'Internal server error' })
   findAll(@Query() query: QueryOrderDto) {
     return this.orderService.findAll(query);
+  }
+
+  @Get('recap')
+  @Permission('order-recap', 'read')
+  @ApiOperation({
+    summary: 'Rekapitulasi pesanan (pemasukan vs pengeluaran trip sheet)',
+    description:
+      'Daftar pesanan pada bulan/tahun berdasarkan tanggal dibuat, dengan agregasi biaya trip sheet per pesanan.',
+  })
+  @ApiQuery({ name: 'month', required: true, example: 4, description: 'Bulan 1–12' })
+  @ApiQuery({ name: 'year', required: true, example: 2026, description: 'Tahun' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  recap(@Query() query: QueryOrderRecapDto) {
+    return this.orderService.recap(query);
   }
 
   @Get(':uuid')
@@ -106,3 +121,4 @@ export class OrderController {
     return this.orderService.remove(id, user);
   }
 }
+

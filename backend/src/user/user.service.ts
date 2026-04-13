@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto, QueryUserDto, UpdateUserDto } from './dto/user.dto';
 import { CurrentUserType } from 'src/decorator/current-user.decorator';
 import { normalizeUserId } from 'src/utils/normalize-user-id.util';
+import { normalizePrismaCount } from 'src/utils/pagination-total.util';
 
 @Injectable()
 export class UserService {
@@ -36,7 +37,7 @@ export class UserService {
         }),
       };
 
-      const [data, total] = await this.prisma.db.$transaction([
+      const [data, totalRaw] = await this.prisma.db.$transaction([
         this.prisma.db.user.findMany({
           where,
           skip,
@@ -58,6 +59,8 @@ export class UserService {
         }),
         this.prisma.db.user.count({ where }),
       ]);
+
+      const total = normalizePrismaCount(totalRaw as number | bigint);
 
       return {
         success: true,

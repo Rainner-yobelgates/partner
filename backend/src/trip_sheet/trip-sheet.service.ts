@@ -7,6 +7,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { QueryTripSheetDto, UpdateTripSheetDto, UpdateTripSheetPublicDto } from './dto/trip-sheet.dto';
 import { CurrentUserType } from 'src/decorator/current-user.decorator';
 import { normalizeUserId } from 'src/utils/normalize-user-id.util';
+import { decimalToMoneyString, toPrismaDecimal } from 'src/utils/money.util';
+import { normalizePrismaCount } from 'src/utils/pagination-total.util';
 
 @Injectable()
 export class TripSheetService {
@@ -39,7 +41,7 @@ export class TripSheetService {
         }),
       };
 
-      const [data, total] = await this.prisma.db.$transaction([
+      const [data, totalRaw] = await this.prisma.db.$transaction([
         this.prisma.db.tripSheet.findMany({
           where,
           skip,
@@ -56,6 +58,7 @@ export class TripSheetService {
             toll_fee: true,
             parking_fee: true,
             stay_cost: true,
+            others: true,
             expense_notes: true,
             attachment: true,
             status: true,
@@ -89,6 +92,8 @@ export class TripSheetService {
         this.prisma.db.tripSheet.count({ where }),
       ]);
 
+      const total = normalizePrismaCount(totalRaw as number | bigint);
+
       return {
         success: true,
         message: 'Data trip sheet berhasil diambil',
@@ -118,6 +123,7 @@ export class TripSheetService {
           toll_fee: true,
           parking_fee: true,
           stay_cost: true,
+          others: true,
           expense_notes: true,
           attachment: true,
           status: true,
@@ -201,10 +207,11 @@ export class TripSheetService {
           ...(dto.driver_id !== undefined && { driver_id: dto.driver_id ? BigInt(dto.driver_id) : null }),
           ...(dto.assistant_id !== undefined && { assistant_id: dto.assistant_id ? BigInt(dto.assistant_id) : null }),
           destination: resolvedDestination,
-          ...(dto.fuel_cost !== undefined && { fuel_cost: dto.fuel_cost }),
-          ...(dto.toll_fee !== undefined && { toll_fee: dto.toll_fee }),
-          ...(dto.parking_fee !== undefined && { parking_fee: dto.parking_fee }),
-          ...(dto.stay_cost !== undefined && { stay_cost: dto.stay_cost }),
+          ...(dto.fuel_cost !== undefined && { fuel_cost: toPrismaDecimal(dto.fuel_cost) }),
+          ...(dto.toll_fee !== undefined && { toll_fee: toPrismaDecimal(dto.toll_fee) }),
+          ...(dto.parking_fee !== undefined && { parking_fee: toPrismaDecimal(dto.parking_fee) }),
+          ...(dto.stay_cost !== undefined && { stay_cost: toPrismaDecimal(dto.stay_cost) }),
+          ...(dto.others !== undefined && { others: toPrismaDecimal(dto.others) }),
           ...(dto.expense_notes !== undefined && { expense_notes: dto.expense_notes }),
           ...(dto.attachment !== undefined && { attachment: dto.attachment }),
           ...(dto.status !== undefined && { status: dto.status }),
@@ -238,6 +245,7 @@ export class TripSheetService {
           toll_fee: true,
           parking_fee: true,
           stay_cost: true,
+          others: true,
           expense_notes: true,
           attachment: true,
           status: true,
@@ -323,10 +331,11 @@ export class TripSheetService {
           ...(dto.driver_id !== undefined && { driver_id: dto.driver_id ? BigInt(dto.driver_id) : null }),
           ...(dto.assistant_id !== undefined && { assistant_id: dto.assistant_id ? BigInt(dto.assistant_id) : null }),
           destination: resolvedDestination,
-          ...(dto.fuel_cost !== undefined && { fuel_cost: dto.fuel_cost }),
-          ...(dto.toll_fee !== undefined && { toll_fee: dto.toll_fee }),
-          ...(dto.parking_fee !== undefined && { parking_fee: dto.parking_fee }),
-          ...(dto.stay_cost !== undefined && { stay_cost: dto.stay_cost }),
+          ...(dto.fuel_cost !== undefined && { fuel_cost: toPrismaDecimal(dto.fuel_cost) }),
+          ...(dto.toll_fee !== undefined && { toll_fee: toPrismaDecimal(dto.toll_fee) }),
+          ...(dto.parking_fee !== undefined && { parking_fee: toPrismaDecimal(dto.parking_fee) }),
+          ...(dto.stay_cost !== undefined && { stay_cost: toPrismaDecimal(dto.stay_cost) }),
+          ...(dto.others !== undefined && { others: toPrismaDecimal(dto.others) }),
           ...(dto.expense_notes !== undefined && { expense_notes: dto.expense_notes }),
           ...(dto.attachment !== undefined && { attachment: dto.attachment }),
           ...(dto.status !== undefined && { status: dto.status }),
@@ -399,10 +408,11 @@ export class TripSheetService {
       driver_id: t.driver_id?.toString() ?? null,
       assistant_id: t.assistant_id?.toString() ?? null,
       destination: t.destination ?? t.orderVehicle?.order?.destination ?? t.orderVehicle?.order?.dropoff_location ?? null,
-      fuel_cost: t.fuel_cost ? Number(t.fuel_cost) : null,
-      toll_fee: t.toll_fee ? Number(t.toll_fee) : null,
-      parking_fee: t.parking_fee ? Number(t.parking_fee) : null,
-      stay_cost: t.stay_cost ? Number(t.stay_cost) : null,
+      fuel_cost: decimalToMoneyString(t.fuel_cost),
+      toll_fee: decimalToMoneyString(t.toll_fee),
+      parking_fee: decimalToMoneyString(t.parking_fee),
+      stay_cost: decimalToMoneyString(t.stay_cost),
+      others: decimalToMoneyString(t.others),
       public_submitted_at: t.public_submitted_at ?? null,
       orderVehicle: t.orderVehicle
         ? {

@@ -36,6 +36,11 @@ export const routes = [
         meta: { requiresAuth: true, permission: 'vehicle:read' },
       },
       {
+        path: 'clients',
+        component: () => import('@/pages/clients.vue'),
+        meta: { requiresAuth: true, permission: 'client:read' },
+      },
+      {
         path: 'facilities',
         component: () => import('@/pages/facilities.vue'),
         meta: { requiresAuth: true, permission: 'facility:read' },
@@ -54,6 +59,16 @@ export const routes = [
         path: 'orders',
         component: () => import('@/pages/orders.vue'),
         meta: { requiresAuth: true, permission: 'order:read' },
+      },
+      {
+        path: 'order-recap',
+        component: () => import('@/pages/order-recap.vue'),
+        meta: { requiresAuth: true, permission: 'order-recap:read' },
+      },
+      {
+        path: 'contract-recap',
+        component: () => import('@/pages/contract-recap.vue'),
+        meta: { requiresAuth: true, permission: 'client-recap:read' },
       },
       {
         path: 'trip-sheets',
@@ -96,3 +111,6 @@ export const routes = [
     ],
   },
 ]
+
+
+

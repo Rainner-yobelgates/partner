@@ -1,4 +1,5 @@
 import { createMasterCrudService } from './master-crud.service'
+import { request } from './http'
 
 export type MasterStatus = 'ACTIVE' | 'INACTIVE'
 export type VehicleType = 'EVALIA' | 'MEDIUM_BUS' | 'HIACE'
@@ -134,42 +135,77 @@ export type RoutePayload = {
   status?: MasterStatus
 }
 
-export type ContractItem = {
+export type ClientItem = {
   id: string
-  contracts_uuid: string
-  contract_number?: string | null
+  clients_uuid: string
+  name: string
+  code?: string | null
   contact_person?: string | null
   phone_number?: string | null
   email?: string | null
   address?: string | null
-  start_date?: string | null
-  end_date?: string | null
   status?: MasterStatus | null
+  created_at: string
+  updated_at: string
+}
+
+export type ClientPayload = {
+  name: string
+  code?: string
+  contact_person?: string
+  phone_number?: string
+  email?: string
+  address?: string
+  status?: MasterStatus
+}
+
+export type ContractItem = {
+  id: string
+  contracts_uuid: string
+  contract_number?: string | null
+  client_id: string
+  contract_month: number
+  contract_year: number
+  contact_person?: string | null
+  phone_number?: string | null
+  email?: string | null
+  address?: string | null
+  contract_value?: string | null
+  status?: MasterStatus | null
+  client?: {
+    id: string
+    clients_uuid: string
+    name: string
+    code?: string | null
+  } | null
   created_at: string
   updated_at: string
 }
 
 export type ContractPayload = {
   contract_number?: string
+  client_id: string
+  contract_month: number
+  contract_year: number
   contact_person?: string
   phone_number?: string
   email?: string
   address?: string
-  start_date?: string
-  end_date?: string
+  contract_value?: string
   status?: MasterStatus
 }
 
 export type ShuttleItem = {
   id: string
   shuttles_uuid: string
-  contract_id?: string | null
+  client_id: string
   vehicle_id?: string | null
   route_id?: string | null
-  contract?: {
+  client?: {
     id: string
-    contract_number?: string | null
-    contact_person?: string | null
+    clients_uuid?: string
+    name?: string | null
+    code?: string | null
   } | null
   vehicle?: {
     id: string
@@ -181,25 +217,25 @@ export type ShuttleItem = {
     origin?: string | null
     destination?: string | null
   } | null
-  crew_incentive?: number | null
+  crew_incentive?: string | null
   scheduled_date?: string | null
-  fuel?: number | null
-  toll_fee?: number | null
-  others?: number | null
+  fuel?: string | null
+  toll_fee?: string | null
+  others?: string | null
   status?: MasterStatus | null
   created_at: string
   updated_at: string
 }
 
 export type ShuttlePayload = {
-  contract_id?: string
+  client_id?: string
   vehicle_id?: string
   route_id?: string
-  crew_incentive?: number
+  crew_incentive?: string
   scheduled_date?: string
-  fuel?: number
-  toll_fee?: number
-  others?: number
+  fuel?: string
+  toll_fee?: string
+  others?: string
   status?: MasterStatus
 }
 
@@ -230,15 +266,113 @@ export type VehicleServicePayload = {
   status?: MasterStatus
 }
 
-// Fully implemented and used by Role page
-export const roleMasterService = createMasterCrudService<RoleItem, RolePayload>('roles')
+export type ContractRecapClientOption = {
+  id: string
+  clients_uuid: string
+  name: string
+  code?: string | null
+}
 
-// Shared CRUD framework for other master resources
+export type ContractRecapDefaultSelection = {
+  client_id: string
+  client_name: string
+  client_code?: string | null
+  month: number
+  year: number
+  contract_number?: string | null
+}
+
+export type ContractRecapShuttleRow = {
+  id: string
+  shuttles_uuid: string
+  scheduled_date: string
+  status?: MasterStatus | null
+  vehicle_plate_number?: string | null
+  vehicle_type?: string | null
+  route_origin?: string | null
+  route_destination?: string | null
+  crew_incentive: string
+  fuel: string
+  toll_fee: string
+  others: string
+  total_cost: string
+}
+
+export type ContractRecapSummary = {
+  contract_count: number
+  shuttle_trip_count: number
+  total_income: string
+  total_expense: string
+  total_profit: string
+  expense_crew_incentive: string
+  expense_fuel: string
+  expense_toll: string
+  expense_others: string
+}
+
+export type ContractRecapRow = {
+  client_id: string
+  client_name: string
+  client_code?: string | null
+  month: number
+  year: number
+  period_label: string
+  contract: {
+    id: string
+    contract_number?: string | null
+    contract_value: string
+  } | null
+  summary: ContractRecapSummary
+  shuttles: ContractRecapShuttleRow[]
+  filter: {
+    scheduled_from: string
+    scheduled_to_before: string
+  }
+}
+
+export type ContractRecapDefaultResponse = {
+  success: boolean
+  message: string
+  data: ContractRecapDefaultSelection | null
+}
+
+export type ContractRecapClientOptionsResponse = {
+  success: boolean
+  message: string
+  data: ContractRecapClientOption[]
+}
+
+export type ContractRecapResponse = {
+  success: boolean
+  message: string
+  data: ContractRecapRow
+}
+
+export const contractRecapService = {
+  defaultSelection() {
+    return request<ContractRecapDefaultResponse>('/contracts/recap/default')
+  },
+  clients() {
+    return request<ContractRecapClientOptionsResponse>('/contracts/recap/clients')
+  },
+  recap(clientId: string, month: number, year: number) {
+    const params = new URLSearchParams({
+      client_id: clientId,
+      month: String(month),
+      year: String(year),
+    })
+    return request<ContractRecapResponse>(`/contracts/recap?${params.toString()}`)
+  },
+}
+
+export const roleMasterService = createMasterCrudService<RoleItem, RolePayload>('roles')
 export const userMasterService = createMasterCrudService<UserItem, UserPayload, UserPayload>('users')
 export const driverMasterService = createMasterCrudService<DriverItem, DriverPayload, DriverPayload>('drivers')
 export const vehicleMasterService = createMasterCrudService<VehicleItem, VehiclePayload, VehiclePayload>('vehicles')
 export const routeMasterService = createMasterCrudService<RouteItem, RoutePayload, RoutePayload>('routes')
+export const clientMasterService = createMasterCrudService<ClientItem, ClientPayload, ClientPayload>('clients')
 export const contractMasterService = createMasterCrudService<ContractItem, ContractPayload, ContractPayload>('contracts')
 export const shuttleMasterService = createMasterCrudService<ShuttleItem, ShuttlePayload, ShuttlePayload>('shuttles')
 export const facilityMasterService = createMasterCrudService<FacilityItem, FacilityPayload, FacilityPayload>('facilities')
 export const vehicleServiceMasterService = createMasterCrudService<VehicleServiceItem, VehicleServicePayload, VehicleServicePayload>('vehicle-services')
+

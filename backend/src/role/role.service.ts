@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateRoleDto, QueryRoleDto, UpdateRoleDto } from './dto/role.dto';
 import { CurrentUserType } from 'src/decorator/current-user.decorator';
 import { normalizeUserId } from 'src/utils/normalize-user-id.util';
+import { normalizePrismaCount } from 'src/utils/pagination-total.util';
 import { UpdateRolePermissionsDto } from './dto/role-permission.dto';
 
 @Injectable()
@@ -21,7 +22,7 @@ export class RolesService {
     const sortOrder = query.sortOrder || 'desc';
 
     try {
-      const [data, total] = await this.prisma.db.$transaction([
+      const [data, totalRaw] = await this.prisma.db.$transaction([
         this.prisma.db.role.findMany({
           where: {
             deleted_at: null,
@@ -57,6 +58,8 @@ export class RolesService {
           },
         }),
       ]);
+
+      const total = normalizePrismaCount(totalRaw as number | bigint);
 
       return {
         success: true,

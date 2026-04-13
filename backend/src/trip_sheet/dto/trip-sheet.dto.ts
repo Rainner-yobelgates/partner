@@ -5,10 +5,9 @@ import {
   IsEnum,
   IsNumberString,
   IsDateString,
-  IsNumber,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 import { Status } from 'generated/prisma/enums';
+import { IsMoneyAmountOptional } from 'src/utils/money-field.decorator';
 
 export class CreateTripSheetDto {
   @ApiProperty({ description: 'ID order vehicle', example: '1' })
@@ -25,29 +24,20 @@ export class CreateTripSheetDto {
   @IsString()
   assistant_id?: string;
 
-  @ApiPropertyOptional({ description: 'Biaya BBM', example: 150000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  fuel_cost?: number;
+  @IsMoneyAmountOptional('Biaya BBM', '150000.00')
+  fuel_cost?: string;
 
-  @ApiPropertyOptional({ description: 'Biaya tol', example: 45000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  toll_fee?: number;
+  @IsMoneyAmountOptional('Biaya tol', '45000.00')
+  toll_fee?: string;
 
-  @ApiPropertyOptional({ description: 'Biaya parkir', example: 20000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  parking_fee?: number;
+  @IsMoneyAmountOptional('Biaya parkir', '20000.00')
+  parking_fee?: string;
 
-  @ApiPropertyOptional({ description: 'Biaya inap', example: 120000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  stay_cost?: number;
+  @IsMoneyAmountOptional('Biaya inap', '120000.00')
+  stay_cost?: string;
+
+  @IsMoneyAmountOptional('Biaya lain-lain', '25000.00')
+  others?: string;
 
   @ApiPropertyOptional({ description: 'Catatan biaya', example: 'BBM Pertamax + tol lingkar luar' })
   @IsOptional()
@@ -78,29 +68,20 @@ export class UpdateTripSheetPublicDto {
   @IsString()
   assistant_id?: string;
 
-  @ApiPropertyOptional({ description: 'Biaya BBM', example: 150000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  fuel_cost?: number;
+  @IsMoneyAmountOptional('Biaya BBM', '150000.00')
+  fuel_cost?: string;
 
-  @ApiPropertyOptional({ description: 'Biaya tol', example: 45000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  toll_fee?: number;
+  @IsMoneyAmountOptional('Biaya tol', '45000.00')
+  toll_fee?: string;
 
-  @ApiPropertyOptional({ description: 'Biaya parkir', example: 20000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  parking_fee?: number;
+  @IsMoneyAmountOptional('Biaya parkir', '20000.00')
+  parking_fee?: string;
 
-  @ApiPropertyOptional({ description: 'Biaya inap', example: 120000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  stay_cost?: number;
+  @IsMoneyAmountOptional('Biaya inap', '120000.00')
+  stay_cost?: string;
+
+  @IsMoneyAmountOptional('Biaya lain-lain', '25000.00')
+  others?: string;
 
   @ApiPropertyOptional({ description: 'Catatan biaya', example: 'BBM Pertamax + tol lingkar luar' })
   @IsOptional()
@@ -169,4 +150,3 @@ export class QueryTripSheetDto {
   @IsDateString()
   date_to?: string;
 }
-

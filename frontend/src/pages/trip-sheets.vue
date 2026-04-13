@@ -3,6 +3,7 @@ import { ApiError } from '@/services/http'
 import { tripSheetService, type TripSheetItem } from '@/services/trip-sheets'
 import { driverMasterService, type DriverItem, type MasterStatus } from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
+import { blockKeysInvalidNumberMoneyInput } from '@/utils/money-input'
 
 type TripSheetForm = {
   order_vehicle_id: string
@@ -12,6 +13,7 @@ type TripSheetForm = {
   toll_fee: number | null
   parking_fee: number | null
   stay_cost: number | null
+  others: number | null
   expense_notes: string
   status: MasterStatus
 }
@@ -40,6 +42,13 @@ const existingAttachments = ref<string[]>([])
 const maxAttachmentSizeMb = 5
 const maxAttachmentCount = 15
 
+const feeToInput = (v: number | string | null | undefined) => {
+  if (v == null || v === '')
+    return null
+  const n = typeof v === 'number' ? v : Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
 const form = ref<TripSheetForm>({
   order_vehicle_id: '',
   driver_id: '',
@@ -48,6 +57,7 @@ const form = ref<TripSheetForm>({
   toll_fee: null,
   parking_fee: null,
   stay_cost: null,
+  others: null,
   expense_notes: '',
   status: 'ACTIVE',
 })
@@ -151,6 +161,9 @@ const buildFormData = () => {
   if (form.value.stay_cost !== null && form.value.stay_cost !== undefined)
     data.append('stay_cost', String(form.value.stay_cost))
 
+  if (form.value.others !== null && form.value.others !== undefined)
+    data.append('others', String(form.value.others))
+
   if (form.value.expense_notes.trim())
     data.append('expense_notes', form.value.expense_notes.trim())
 
@@ -247,10 +260,11 @@ const openEditDialog = (item: TripSheetItem) => {
     order_vehicle_id: item.order_vehicle_id || '',
     driver_id: item.driver_id || '',
     assistant_id: item.assistant_id || '',
-    fuel_cost: item.fuel_cost ?? null,
-    toll_fee: item.toll_fee ?? null,
-    parking_fee: item.parking_fee ?? null,
-    stay_cost: item.stay_cost ?? null,
+    fuel_cost: feeToInput(item.fuel_cost),
+    toll_fee: feeToInput(item.toll_fee),
+    parking_fee: feeToInput(item.parking_fee),
+    stay_cost: feeToInput(item.stay_cost),
+    others: feeToInput(item.others),
     expense_notes: item.expense_notes || '',
     status: item.status || 'ACTIVE',
   }
@@ -434,10 +448,66 @@ onMounted(async () => {
             </VCol>
             <VCol cols="12" md="6"><VTextField :model-value="editedItem?.destination || editedItem?.orderVehicle?.order?.destination || editedItem?.orderVehicle?.order?.dropoff_location || '-'" label="Tujuan (dari Order)" readonly /></VCol>
             <VCol cols="12" md="6"><VSelect v-model="form.status" label="Status" :items="['ACTIVE','INACTIVE']" /></VCol>
-            <VCol cols="12" md="3"><VTextField v-model.number="form.fuel_cost" label="Biaya BBM" type="number" /></VCol>
-            <VCol cols="12" md="3"><VTextField v-model.number="form.toll_fee" label="Biaya Tol" type="number" /></VCol>
-            <VCol cols="12" md="3"><VTextField v-model.number="form.parking_fee" label="Biaya Parkir" type="number" /></VCol>
-            <VCol cols="12" md="3"><VTextField v-model.number="form.stay_cost" label="Biaya Inap" type="number" /></VCol>
+            <VCol cols="12" md="3">
+              <VTextField
+                v-model.number="form.fuel_cost"
+                label="Biaya BBM"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                autocomplete="off"
+                @keydown="blockKeysInvalidNumberMoneyInput"
+              />
+            </VCol>
+            <VCol cols="12" md="3">
+              <VTextField
+                v-model.number="form.toll_fee"
+                label="Biaya Tol"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                autocomplete="off"
+                @keydown="blockKeysInvalidNumberMoneyInput"
+              />
+            </VCol>
+            <VCol cols="12" md="3">
+              <VTextField
+                v-model.number="form.parking_fee"
+                label="Biaya Parkir"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                autocomplete="off"
+                @keydown="blockKeysInvalidNumberMoneyInput"
+              />
+            </VCol>
+            <VCol cols="12" md="3">
+              <VTextField
+                v-model.number="form.stay_cost"
+                label="Biaya Inap"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                autocomplete="off"
+                @keydown="blockKeysInvalidNumberMoneyInput"
+              />
+            </VCol>
+            <VCol cols="12" md="3">
+              <VTextField
+                v-model.number="form.others"
+                label="Biaya lain-lain"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                autocomplete="off"
+                @keydown="blockKeysInvalidNumberMoneyInput"
+              />
+            </VCol>
             <VCol cols="12" md="6">
               <VFileInput
                 v-model="attachments"
@@ -499,6 +569,7 @@ onMounted(async () => {
             <tr><td>Biaya Tol</td><td class="text-end">{{ detailItem?.toll_fee ?? '-' }}</td></tr>
             <tr><td>Biaya Parkir</td><td class="text-end">{{ detailItem?.parking_fee ?? '-' }}</td></tr>
             <tr><td>Biaya Inap</td><td class="text-end">{{ detailItem?.stay_cost ?? '-' }}</td></tr>
+            <tr><td>Biaya lain-lain</td><td class="text-end">{{ detailItem?.others ?? '-' }}</td></tr>
             <tr><td>Catatan</td><td class="text-end">{{ detailItem?.expense_notes || '-' }}</td></tr>
             <tr>
               <td>Attachment</td>

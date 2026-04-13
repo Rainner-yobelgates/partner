@@ -57,7 +57,7 @@ export type OrderItem = {
   destination?: string | null
   dropoff_location?: string | null
   total_vehicles?: number | null
-  total_amount?: number | null
+  total_amount?: string | null
   status?: OrderStatus | null
   notes?: string | null
   created_at: string
@@ -86,7 +86,7 @@ export type OrderPayload = {
   pickup_location?: string
   destination?: string
   dropoff_location?: string
-  total_amount?: number
+  total_amount?: string
   status?: OrderStatus
   notes?: string
   vehicles?: OrderVehiclePayload[]
@@ -123,6 +123,45 @@ export type OrderMutationResponse = {
   success: boolean
   message: string
   data?: OrderItem
+}
+
+export type OrderRecapRow = {
+  id: string
+  orders_uuid: string
+  order_number: string
+  customer_name?: string | null
+  customer_phone?: string | null
+  status?: OrderStatus | null
+  created_at: string
+  trip_sheet_count: number
+  income: string | null
+  expense_fuel: string | null
+  expense_toll: string | null
+  expense_parking: string | null
+  expense_stay: string | null
+  expense_others: string | null
+  total_expense: string | null
+  profit: string | null
+}
+
+export type OrderRecapSummary = {
+  order_count: number
+  total_income: string | null
+  total_expense: string | null
+  total_profit: string | null
+}
+
+export type OrderRecapResponse = {
+  success: boolean
+  message: string
+  data: OrderRecapRow[]
+  summary: OrderRecapSummary
+  filter: {
+    month: number
+    year: number
+    created_from: string
+    created_to_before: string
+  }
 }
 
 const buildQueryString = (query: OrderListQuery) => {
@@ -175,5 +214,11 @@ export const orderService = {
     return request<OrderMutationResponse>(`/orders/${id}`, {
       method: 'DELETE',
     })
+  },
+  recap(month: number, year: number) {
+    const params = new URLSearchParams()
+    params.set('month', String(month))
+    params.set('year', String(year))
+    return request<OrderRecapResponse>(`/orders/recap?${params.toString()}`)
   },
 }

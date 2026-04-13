@@ -12,6 +12,7 @@ export type TripSheetItem = {
   toll_fee?: number | null
   parking_fee?: number | null
   stay_cost?: number | null
+  others?: number | string | null
   expense_notes?: string | null
   attachment?: string | null
   status?: MasterStatus | null
@@ -46,6 +47,7 @@ export type TripSheetPayload = {
   toll_fee?: number
   parking_fee?: number
   stay_cost?: number
+  others?: number
   expense_notes?: string
   attachment?: string
   status?: MasterStatus
@@ -58,6 +60,7 @@ export type TripSheetPublicPayload = {
   toll_fee?: number
   parking_fee?: number
   stay_cost?: number
+  others?: number
   expense_notes?: string
   attachment?: string
   status?: MasterStatus

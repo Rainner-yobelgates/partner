@@ -64,7 +64,7 @@ export const useAuthStore = defineStore('auth', () => {
       return
     }
 
-    const response = await request<MyPermissionsResponse>('/auth/permissions')
+    const response = await request<MyPermissionsResponse>('/auth/permissions', { method: 'GET' })
     roleId.value = response.data.role_id
     permissions.value = response.data.permissions ?? []
     isPermissionsLoaded.value = true

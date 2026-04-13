@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import { ApiError } from '@/services/http'
 import { orderService, type OrderItem, type OrderPayload, type OrderStatus, type TripSheetLink } from '@/services/orders'
-import { driverMasterService, vehicleMasterService, type DriverItem, type MasterStatus, type VehicleItem } from '@/services/masters'
+import {
+  type MasterStatus,
+  vehicleMasterService,
+  type VehicleItem,
+} from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
 import { optionalPhoneRule, sanitizePhoneNumber } from '@/utils/phone'
+import {
+  blockKeysNonDecimalMoney,
+  parseOptionalApiDecimalMoney,
+  sanitizeDecimalMoneyInput,
+} from '@/utils/money-input'
 
 type OrderForm = {
   order_number: string
@@ -16,7 +25,7 @@ type OrderForm = {
   standby_time: string
   pickup_location: string
   destination: string
-  total_amount: number | null
+  total_amount: string
   status: OrderStatus
   notes: string
 }
@@ -53,7 +62,6 @@ const tripSheetLinks = ref<TripSheetLink[]>([])
 const detailLinks = ref<TripSheetLink[]>([])
 
 const vehicles = ref<VehicleItem[]>([])
-const drivers = ref<DriverItem[]>([])
 
 const vehicleAssignments = ref<OrderVehicleForm[]>([])
 
@@ -68,7 +76,7 @@ const form = ref<OrderForm>({
   standby_time: '',
   pickup_location: '',
   destination: '',
-  total_amount: null,
+  total_amount: '',
   status: 'PENDING',
   notes: '',
 })
@@ -79,11 +87,26 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / perPage.va
 const isEditMode = computed(() => Boolean(editedItem.value))
 
 const vehicleOptions = computed(() => vehicles.value.map(v => ({
-  title: [v.plate_number, v.vehicle_type, v.hull_number].filter(Boolean).join(' · ') || `Kendaraan #${v.id}`,
+  title: [v.plate_number, v.vehicle_type, v.hull_number].filter(Boolean).join(' � ') || `Kendaraan #${v.id}`,
   subtitle: `No. Lambung: ${v.hull_number || '-'} | Tipe: ${v.vehicle_type || '-'}`,
   value: v.id,
 })))
+
 const phoneRules = [optionalPhoneRule]
+
+/** Tampilan rupiah dari string DECIMAL API (mis. "1500000.00"). */
+const formatMoneyId = (value?: string | null) => {
+  if (value == null || value === '')
+    return '-'
+  const n = Number(value)
+  if (!Number.isFinite(n))
+    return value
+  return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+}
+
+const onTotalAmountInput = (v: string) => {
+  form.value.total_amount = sanitizeDecimalMoneyInput(String(v ?? ''))
+}
 
 const showToast = (text: string, color: 'success' | 'error' = 'success') => {
   snackbar.value = { show: true, color, text }
@@ -178,17 +201,11 @@ const extractTripSheetLinks = (order: OrderItem): TripSheetLink[] => {
 
 const fetchOptions = async () => {
   try {
-    const [vehicleRes, driverRes] = await Promise.all([
-      vehicleMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' }),
-      driverMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' }),
-    ])
-
+    const vehicleRes = await vehicleMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' })
     vehicles.value = vehicleRes.data.filter(vehicle => vehicle.status === 'ACTIVE')
-    drivers.value = driverRes.data.filter(driver => driver.status === 'ACTIVE')
   }
   catch (error) {
     console.error('[pages/orders.vue]', error)
-    // ignore
   }
 }
 
@@ -229,7 +246,7 @@ const resetForm = () => {
     standby_time: getCurrentTimeInput(),
     pickup_location: '',
     destination: '',
-    total_amount: null,
+    total_amount: '',
     status: 'PENDING',
     notes: '',
   }
@@ -266,7 +283,7 @@ const openEditDialog = (item: OrderItem) => {
     standby_time: toInputTime(item.standby_time),
     pickup_location: item.pickup_location || '',
     destination: getDestination(item) || '',
-    total_amount: item.total_amount ?? null,
+    total_amount: item.total_amount?.trim() ? item.total_amount : '',
     status: item.status || 'PENDING',
     notes: item.notes || '',
   }
@@ -282,29 +299,33 @@ const openEditDialog = (item: OrderItem) => {
   isFormDialogOpen.value = true
 }
 
-const buildPayload = (): OrderPayload => ({
-  order_number: form.value.order_number.trim() || undefined,
-  customer_name: form.value.customer_name.trim() || undefined,
-  customer_phone: sanitizePhoneNumber(form.value.customer_phone) || undefined,
-  customer_email: form.value.customer_email.trim() || undefined,
-  order_date: form.value.order_date || undefined,
-  start_date: form.value.start_date || undefined,
-  finish_date: form.value.finish_date || undefined,
-  usage_date: form.value.start_date || undefined,
-  standby_time: buildStandbyDateTime(form.value.standby_time),
-  pickup_location: form.value.pickup_location.trim() || undefined,
-  destination: form.value.destination.trim() || undefined,
-  dropoff_location: form.value.destination.trim() || undefined,
-  total_amount: form.value.total_amount ?? undefined,
-  status: form.value.status,
-  notes: form.value.notes.trim() || undefined,
-  vehicles: vehicleAssignments.value
-    .filter(v => v.vehicle_id)
-    .map(v => ({
-      vehicle_id: v.vehicle_id,
-      status: v.status,
-    })),
-})
+const buildPayload = (): OrderPayload => {
+  const totalAmountPayload = parseOptionalApiDecimalMoney(form.value.total_amount)
+
+  return {
+    order_number: form.value.order_number.trim() || undefined,
+    customer_name: form.value.customer_name.trim() || undefined,
+    customer_phone: sanitizePhoneNumber(form.value.customer_phone) || undefined,
+    customer_email: form.value.customer_email.trim() || undefined,
+    order_date: form.value.order_date || undefined,
+    start_date: form.value.start_date || undefined,
+    finish_date: form.value.finish_date || undefined,
+    usage_date: form.value.start_date || undefined,
+    standby_time: buildStandbyDateTime(form.value.standby_time),
+    pickup_location: form.value.pickup_location.trim() || undefined,
+    destination: form.value.destination.trim() || undefined,
+    dropoff_location: form.value.destination.trim() || undefined,
+    ...(totalAmountPayload !== undefined && totalAmountPayload !== '__invalid__' && { total_amount: totalAmountPayload }),
+    status: form.value.status,
+    notes: form.value.notes.trim() || undefined,
+    vehicles: vehicleAssignments.value
+      .filter(v => v.vehicle_id)
+      .map(v => ({
+        vehicle_id: v.vehicle_id,
+        status: v.status,
+      })),
+  }
+}
 
 const onPhoneInput = () => {
   form.value.customer_phone = sanitizePhoneNumber(form.value.customer_phone)
@@ -313,6 +334,12 @@ const onPhoneInput = () => {
 const submitForm = async () => {
   if (isSubmitting.value)
     return
+
+  const totalAmountParsed = parseOptionalApiDecimalMoney(form.value.total_amount)
+  if (totalAmountParsed === '__invalid__') {
+    showToast('Total biaya tidak valid. Hanya angka; titik untuk desimal (maks. 13 digit bulat, 2 desimal).', 'error')
+    return
+  }
 
   isSubmitting.value = true
 
@@ -425,7 +452,7 @@ onMounted(async () => {
     <VCardText>
       <VRow>
         <VCol cols="12" md="5">
-          <VTextField v-model="search" label="Cari pesanan" placeholder="Nomor pesanan / customer" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" />
+          <VTextField v-model="search" label="Cari pesanan" placeholder="Nomor / customer / kontrak / klien" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" />
         </VCol>
         <VCol cols="12" md="2">
           <VBtn block class="mt-md-1" color="secondary" @click="onSearch">Cari</VBtn>
@@ -457,7 +484,7 @@ onMounted(async () => {
           />
         </VCol>
         <VCol cols="12" md="2">
-          <VSelect v-model="perPage" label="Per halaman" :items="[10,20,50]" />
+          <VSelect v-model="perPage" label="Per halaman" :items="[10, 20, 50]" />
         </VCol>
       </VRow>
     </VCardText>
@@ -470,7 +497,6 @@ onMounted(async () => {
         <thead>
           <tr>
             <th>Nomor</th>
-            <th>Customer</th>
             <th>Start - Finish</th>
             <th>Jumlah Kendaraan</th>
             <th>Total</th>
@@ -481,14 +507,13 @@ onMounted(async () => {
         </thead>
         <tbody>
           <tr v-if="!isLoading && rows.length === 0">
-            <td colspan="8" class="text-center text-medium-emphasis py-6">Data pesanan belum ada.</td>
+            <td colspan="7" class="text-center text-medium-emphasis py-6">Data pesanan belum ada.</td>
           </tr>
           <tr v-for="item in rows" :key="item.id">
             <td class="font-weight-medium">{{ item.order_number }}</td>
-            <td>{{ item.customer_name || '-' }}</td>
             <td>{{ formatOrderPeriod(item) }}</td>
             <td>{{ item.total_vehicles ?? '-' }}</td>
-            <td>{{ item.total_amount ?? '-' }}</td>
+            <td>{{ formatMoneyId(item.total_amount) }}</td>
             <td><VChip size="small" :color="item.status === 'CONFIRMED' ? 'success' : item.status === 'CANCELLED' ? 'error' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
             <td>{{ formatDate(item.updated_at) }}</td>
             <td class="text-end">
@@ -525,14 +550,26 @@ onMounted(async () => {
                 @update:model-value="onPhoneInput"
               />
             </VCol>
+            <VCol cols="12" md="4"><VTextField v-model="form.customer_email" label="Email" type="email" /></VCol>
             <VCol cols="12" md="4"><VTextField v-model="form.order_date" label="Tanggal Pesanan" type="date" /></VCol>
             <VCol cols="12" md="4"><VTextField v-model="form.start_date" label="Tanggal Mulai" type="date" /></VCol>
             <VCol cols="12" md="4"><VTextField v-model="form.finish_date" label="Tanggal Selesai" type="date" /></VCol>
             <VCol cols="12" md="4"><VTextField v-model="form.standby_time" label="Waktu Tunggu" type="time" /></VCol>
-            <VCol cols="12" md="4"><VSelect v-model="form.status" label="Status" :items="['PENDING','CONFIRMED','COMPLETED','CANCELLED']" /></VCol>
-            <VCol cols="12" md="4"><VTextField v-model.number="form.total_amount" label="Total Biaya" type="number" /></VCol>
+            <VCol cols="12" md="4">
+              <VTextField
+                :model-value="form.total_amount"
+                label="Total Biaya"
+                placeholder="1500000.00"
+                inputmode="decimal"
+                autocomplete="off"
+                persistent-hint
+                @update:model-value="onTotalAmountInput"
+                @keydown="blockKeysNonDecimalMoney"
+              />
+            </VCol>
             <VCol cols="12" md="6"><VTextField v-model="form.pickup_location" label="Pickup Location" /></VCol>
             <VCol cols="12" md="6"><VTextField v-model="form.destination" label="Tujuan" /></VCol>
+            <VCol cols="12" md="4"><VSelect v-model="form.status" label="Status" :items="['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED']" /></VCol>
             <VCol cols="12"><VTextarea v-model="form.notes" label="Catatan" rows="2" /></VCol>
           </VRow>
 
@@ -571,7 +608,7 @@ onMounted(async () => {
                   </VAutocomplete>
                 </td>
                 <td style="min-width: 130px">
-                  <VSelect v-model="row.status" :items="['ACTIVE','INACTIVE']" />
+                  <VSelect v-model="row.status" :items="['ACTIVE', 'INACTIVE']" />
                 </td>
                 <td class="text-end">
                   <VBtn size="x-small" variant="text" color="error" @click="removeVehicleRow(index)">Hapus</VBtn>
@@ -585,7 +622,7 @@ onMounted(async () => {
         </VForm>
       </VCardText>
       <VCardActions class="justify-end">
-        <VBtn variant="text" @click="isFormDialogOpen=false">Batal</VBtn>
+        <VBtn variant="text" @click="isFormDialogOpen = false">Batal</VBtn>
         <VBtn color="primary" :loading="isSubmitting" :disabled="isSubmitting" @click="submitForm">Simpan</VBtn>
       </VCardActions>
     </VCard>
@@ -645,7 +682,7 @@ onMounted(async () => {
             </VCol>
             <VCol cols="12" md="4">
               <div class="text-sm text-medium-emphasis">Total Biaya</div>
-              <div class="text-body-1 font-weight-medium">{{ detailItem.total_amount ?? '-' }}</div>
+              <div class="text-body-1 font-weight-medium">{{ formatMoneyId(detailItem.total_amount) }}</div>
             </VCol>
             <VCol cols="12" md="4">
               <div class="text-sm text-medium-emphasis">Status</div>
@@ -682,7 +719,7 @@ onMounted(async () => {
         </template>
       </VCardText>
       <VCardActions class="justify-end">
-        <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
+        <VBtn variant="text" @click="isDetailDialogOpen = false">Tutup</VBtn>
       </VCardActions>
     </VCard>
   </VDialog>
@@ -692,7 +729,7 @@ onMounted(async () => {
       <VCardItem title="Hapus Pesanan" />
       <VCardText>Yakin hapus pesanan <strong>{{ editedItem?.order_number }}</strong>?</VCardText>
       <VCardActions class="justify-end">
-        <VBtn variant="text" @click="isDeleteDialogOpen=false">Batal</VBtn>
+        <VBtn variant="text" @click="isDeleteDialogOpen = false">Batal</VBtn>
         <VBtn color="error" :loading="isSubmitting" :disabled="isSubmitting" @click="confirmDelete">Hapus</VBtn>
       </VCardActions>
     </VCard>
@@ -723,7 +760,7 @@ onMounted(async () => {
         </VTable>
       </VCardText>
       <VCardActions class="justify-end">
-        <VBtn variant="text" @click="isLinksDialogOpen=false">Tutup</VBtn>
+        <VBtn variant="text" @click="isLinksDialogOpen = false">Tutup</VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

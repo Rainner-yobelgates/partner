@@ -1,32 +1,37 @@
 <script setup lang="ts">
 import { ApiError } from '@/services/http'
 import {
-  contractMasterService,
+  clientMasterService,
   routeMasterService,
   shuttleMasterService,
   vehicleMasterService,
-  type ContractItem,
+  type ClientItem,
   type MasterStatus,
   type RouteItem,
   type ShuttleItem,
   type VehicleItem,
 } from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
+import {
+  blockKeysNonDecimalMoney,
+  parseOptionalApiDecimalMoney,
+  sanitizeDecimalMoneyInput,
+} from '@/utils/money-input'
 
 type ShuttleForm = {
-  contract_id: string
+  client_id: string
   vehicle_id: string
   route_id: string
-  crew_incentive: number | null
+  crew_incentive: string
   scheduled_date: string
-  fuel: number | null
-  toll_fee: number | null
-  others: number | null
+  fuel: string
+  toll_fee: string
+  others: string
   status: MasterStatus
 }
 
 const rows = ref<ShuttleItem[]>([])
-const contracts = ref<ContractItem[]>([])
+const clients = ref<ClientItem[]>([])
 const vehicles = ref<VehicleItem[]>([])
 const routes = ref<RouteItem[]>([])
 
@@ -50,14 +55,14 @@ const canDelete = computed(() => authStore.hasPermission('shuttle:delete'))
 const canDetail = computed(() => authStore.hasPermission('shuttle:detail'))
 
 const form = ref<ShuttleForm>({
-  contract_id: '',
+  client_id: '',
   vehicle_id: '',
   route_id: '',
-  crew_incentive: null,
+  crew_incentive: '',
   scheduled_date: '',
-  fuel: null,
-  toll_fee: null,
-  others: null,
+  fuel: '',
+  toll_fee: '',
+  others: '',
   status: 'ACTIVE',
 })
 
@@ -65,19 +70,37 @@ const snackbar = ref({ show: false, color: 'success', text: '' })
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / perPage.value)))
 const isEditMode = computed(() => Boolean(editedItem.value))
 
-const contractOptions = computed(() => contracts.value.map(item => ({ title: item.contract_number || `Kontrak #${item.id}`, value: item.id })))
+const clientOptions = computed(() => clients.value.map(c => ({
+  title: c.code ? `${c.name} (${c.code})` : (c.name || `Klien #${c.id}`),
+  value: c.id,
+})))
+
 const vehicleOptions = computed(() => vehicles.value.map(item => ({ title: item.plate_number || `Kendaraan #${item.id}`, value: item.id })))
 const routeOptions = computed(() => routes.value.map(item => ({ title: `${item.origin || '-'} -> ${item.destination || '-'}`, value: item.id })))
 
 const showToast = (text: string, color: 'success' | 'error' = 'success') => { snackbar.value = { show: true, color, text } }
 const getErrorMessage = (error: unknown) => error instanceof ApiError ? error.message : 'Terjadi kesalahan. Silakan coba lagi.'
 const formatDate = (value?: string | null) => value ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '-'
+
+const formatMoneyId = (value?: string | null) => {
+  if (value == null || value === '')
+    return '-'
+  const n = Number(value)
+  if (!Number.isFinite(n))
+    return value
+  return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+}
+
+const onMoneyFieldInput = (field: 'crew_incentive' | 'fuel' | 'toll_fee' | 'others', v: string) => {
+  form.value[field] = sanitizeDecimalMoneyInput(String(v ?? ''))
+}
+
 const fromIsoToInputDate = (value?: string | null) => value ? new Date(value).toISOString().slice(0, 16) : ''
 const toIsoDate = (value: string) => value ? new Date(value).toISOString() : undefined
 
 const fetchOptions = async () => {
   await Promise.all([
-    contractMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' }).then(res => { contracts.value = res.data.filter(contract => contract.status === 'ACTIVE') }).catch(() => {}),
+    clientMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' }).then(res => { clients.value = res.data.filter(c => c.status === 'ACTIVE') }).catch(() => {}),
     vehicleMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' }).then(res => { vehicles.value = res.data.filter(vehicle => vehicle.status === 'ACTIVE') }).catch(() => {}),
     routeMasterService.list({ page: 1, perPage: 100, sortBy: 'created_at', sortOrder: 'desc' }).then(res => { routes.value = res.data.filter(route => route.status === 'ACTIVE') }).catch(() => {}),
   ])
@@ -104,21 +127,21 @@ const fetchShuttles = async () => {
 
 const resetForm = () => {
   editedItem.value = null
-  form.value = { contract_id: '', vehicle_id: '', route_id: '', crew_incentive: null, scheduled_date: '', fuel: null, toll_fee: null, others: null, status: 'ACTIVE' }
+  form.value = { client_id: '', vehicle_id: '', route_id: '', crew_incentive: '', scheduled_date: '', fuel: '', toll_fee: '', others: '', status: 'ACTIVE' }
 }
 
 const openCreateDialog = () => { resetForm(); isFormDialogOpen.value = true }
 const openEditDialog = (item: ShuttleItem) => {
   editedItem.value = item
   form.value = {
-    contract_id: item.contract_id || '',
+    client_id: item.client_id || '',
     vehicle_id: item.vehicle_id || '',
     route_id: item.route_id || '',
-    crew_incentive: item.crew_incentive ?? null,
+    crew_incentive: item.crew_incentive?.trim() ? item.crew_incentive : '',
     scheduled_date: fromIsoToInputDate(item.scheduled_date),
-    fuel: item.fuel ?? null,
-    toll_fee: item.toll_fee ?? null,
-    others: item.others ?? null,
+    fuel: item.fuel?.trim() ? item.fuel : '',
+    toll_fee: item.toll_fee?.trim() ? item.toll_fee : '',
+    others: item.others?.trim() ? item.others : '',
     status: item.status || 'ACTIVE',
   }
   isFormDialogOpen.value = true
@@ -126,17 +149,33 @@ const openEditDialog = (item: ShuttleItem) => {
 
 const submitForm = async () => {
   if (isSubmitting.value) return
+
+  if (!form.value.client_id.trim()) {
+    showToast('Klien wajib dipilih', 'error')
+    return
+  }
+
+  const ci = parseOptionalApiDecimalMoney(form.value.crew_incentive)
+  const fu = parseOptionalApiDecimalMoney(form.value.fuel)
+  const tf = parseOptionalApiDecimalMoney(form.value.toll_fee)
+  const ot = parseOptionalApiDecimalMoney(form.value.others)
+  const moneyInvalidMsg = 'Nilai uang tidak valid. Hanya angka; titik untuk desimal (maks. 13 digit bulat, 2 desimal).'
+  if (ci === '__invalid__' || fu === '__invalid__' || tf === '__invalid__' || ot === '__invalid__') {
+    showToast(moneyInvalidMsg, 'error')
+    return
+  }
+
   isSubmitting.value = true
 
   const payload = {
-    contract_id: form.value.contract_id || undefined,
+    client_id: form.value.client_id,
     vehicle_id: form.value.vehicle_id || undefined,
     route_id: form.value.route_id || undefined,
-    crew_incentive: form.value.crew_incentive ?? undefined,
+    ...(ci !== undefined && { crew_incentive: ci }),
     scheduled_date: toIsoDate(form.value.scheduled_date),
-    fuel: form.value.fuel ?? undefined,
-    toll_fee: form.value.toll_fee ?? undefined,
-    others: form.value.others ?? undefined,
+    ...(fu !== undefined && { fuel: fu }),
+    ...(tf !== undefined && { toll_fee: tf }),
+    ...(ot !== undefined && { others: ot }),
     status: form.value.status,
   }
 
@@ -179,6 +218,7 @@ const confirmDelete = async () => {
 }
 
 watch([page, perPage, sortBy, sortOrder], fetchShuttles)
+
 onMounted(async () => { await fetchOptions(); await fetchShuttles() })
 </script>
 
@@ -204,16 +244,16 @@ onMounted(async () => { await fetchOptions(); await fetchShuttles() })
       <VProgressLinear v-if="isLoading" indeterminate color="primary" class="mb-4" />
       <VTable density="comfortable">
         <thead>
-          <tr><th>Kontrak</th><th>Kendaraan</th><th>Rute</th><th>Jadwal</th><th>Insentif Kru</th><th>Status</th><th class="text-end">Aksi</th></tr>
+          <tr><th>Klien</th><th>Kendaraan</th><th>Rute</th><th>Jadwal</th><th>Insentif Kru</th><th>Status</th><th class="text-end">Aksi</th></tr>
         </thead>
         <tbody>
           <tr v-if="!isLoading && rows.length===0"><td colspan="7" class="text-center text-medium-emphasis py-6">Data antar jemput belum ada.</td></tr>
           <tr v-for="item in rows" :key="item.id">
-            <td>{{ item.contract?.contract_number || '-' }}</td>
+            <td>{{ item.client?.name || '-' }}</td>
             <td>{{ item.vehicle?.plate_number || '-' }}</td>
             <td>{{ item.route ? `${item.route.origin || '-'} -> ${item.route.destination || '-'}` : '-' }}</td>
             <td>{{ formatDate(item.scheduled_date) }}</td>
-            <td>{{ item.crew_incentive ?? '-' }}</td>
+            <td>{{ formatMoneyId(item.crew_incentive) }}</td>
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
             <td class="text-end">
               <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
@@ -233,15 +273,55 @@ onMounted(async () => { await fetchOptions(); await fetchShuttles() })
       <VCardText>
         <VForm @submit.prevent="submitForm">
           <VRow>
-            <VCol cols="12" md="4"><VSelect v-model="form.contract_id" label="Kontrak" :items="contractOptions" item-title="title" item-value="value" /></VCol>
+            <VCol cols="12" md="4"><VSelect v-model="form.client_id" label="Klien" :items="clientOptions" item-title="title" item-value="value" /></VCol>
             <VCol cols="12" md="4"><VSelect v-model="form.vehicle_id" label="Kendaraan" :items="vehicleOptions" item-title="title" item-value="value" /></VCol>
             <VCol cols="12" md="4"><VSelect v-model="form.route_id" label="Rute" :items="routeOptions" item-title="title" item-value="value" /></VCol>
             <VCol cols="12" md="4"><VTextField v-model="form.scheduled_date" type="datetime-local" label="Jadwal" /></VCol>
-            <VCol cols="12" md="4"><VTextField v-model.number="form.crew_incentive" type="number" label="Insentif Kru" /></VCol>
+            <VCol cols="12" md="4">
+              <VTextField
+                :model-value="form.crew_incentive"
+                label="Insentif Kru"
+                placeholder="150000.00"
+                inputmode="decimal"
+                autocomplete="off"
+                @update:model-value="v => onMoneyFieldInput('crew_incentive', v)"
+                @keydown="blockKeysNonDecimalMoney"
+              />
+            </VCol>
             <VCol cols="12" md="4"><VSelect v-model="form.status" label="Status" :items="['ACTIVE','INACTIVE']" /></VCol>
-            <VCol cols="12" md="4"><VTextField v-model.number="form.fuel" type="number" label="BBM" /></VCol>
-            <VCol cols="12" md="4"><VTextField v-model.number="form.toll_fee" type="number" label="Biaya Tol" /></VCol>
-            <VCol cols="12" md="4"><VTextField v-model.number="form.others" type="number" label="Lainnya" /></VCol>
+            <VCol cols="12" md="4">
+              <VTextField
+                :model-value="form.fuel"
+                label="BBM"
+                placeholder="200000.00"
+                inputmode="decimal"
+                autocomplete="off"
+                @update:model-value="v => onMoneyFieldInput('fuel', v)"
+                @keydown="blockKeysNonDecimalMoney"
+              />
+            </VCol>
+            <VCol cols="12" md="4">
+              <VTextField
+                :model-value="form.toll_fee"
+                label="Biaya Tol"
+                placeholder="50000.00"
+                inputmode="decimal"
+                autocomplete="off"
+                @update:model-value="v => onMoneyFieldInput('toll_fee', v)"
+                @keydown="blockKeysNonDecimalMoney"
+              />
+            </VCol>
+            <VCol cols="12" md="4">
+              <VTextField
+                :model-value="form.others"
+                label="Lainnya"
+                placeholder="0.00"
+                inputmode="decimal"
+                autocomplete="off"
+                @update:model-value="v => onMoneyFieldInput('others', v)"
+                @keydown="blockKeysNonDecimalMoney"
+              />
+            </VCol>
           </VRow>
         </VForm>
       </VCardText>
@@ -257,14 +337,14 @@ onMounted(async () => { await fetchOptions(); await fetchShuttles() })
       <VCardText>
         <VTable density="compact">
           <tbody>
-            <tr><td>Kontrak</td><td class="text-end font-weight-medium">{{ detailItem?.contract?.contract_number || '-' }}</td></tr>
+            <tr><td>Klien</td><td class="text-end font-weight-medium">{{ detailItem?.client?.name || '-' }}</td></tr>
             <tr><td>Kendaraan</td><td class="text-end">{{ detailItem?.vehicle?.plate_number || '-' }}</td></tr>
             <tr><td>Rute</td><td class="text-end">{{ detailItem?.route ? `${detailItem.route.origin || '-'} -> ${detailItem.route.destination || '-'}` : '-' }}</td></tr>
             <tr><td>Jadwal</td><td class="text-end">{{ detailItem ? formatDate(detailItem.scheduled_date) : '-' }}</td></tr>
-            <tr><td>Insentif Kru</td><td class="text-end">{{ detailItem?.crew_incentive ?? '-' }}</td></tr>
-            <tr><td>BBM</td><td class="text-end">{{ detailItem?.fuel ?? '-' }}</td></tr>
-            <tr><td>Biaya Tol</td><td class="text-end">{{ detailItem?.toll_fee ?? '-' }}</td></tr>
-            <tr><td>Lainnya</td><td class="text-end">{{ detailItem?.others ?? '-' }}</td></tr>
+            <tr><td>Insentif Kru</td><td class="text-end">{{ detailItem ? formatMoneyId(detailItem.crew_incentive) : '-' }}</td></tr>
+            <tr><td>BBM</td><td class="text-end">{{ detailItem ? formatMoneyId(detailItem.fuel) : '-' }}</td></tr>
+            <tr><td>Biaya Tol</td><td class="text-end">{{ detailItem ? formatMoneyId(detailItem.toll_fee) : '-' }}</td></tr>
+            <tr><td>Lainnya</td><td class="text-end">{{ detailItem ? formatMoneyId(detailItem.others) : '-' }}</td></tr>
             <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
             <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
             <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>

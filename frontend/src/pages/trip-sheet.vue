@@ -3,6 +3,7 @@ import { useRoute } from 'vue-router'
 import { ApiError } from '@/services/http'
 import { tripSheetService, type TripSheetItem } from '@/services/trip-sheets'
 import { driverMasterService, type DriverItem, type MasterStatus } from '@/services/masters'
+import { blockKeysInvalidNumberMoneyInput } from '@/utils/money-input'
 
 type TripSheetPublicForm = {
   driver_id: string
@@ -11,6 +12,7 @@ type TripSheetPublicForm = {
   toll_fee: number | null
   parking_fee: number | null
   stay_cost: number | null
+  others: number | null
   expense_notes: string
   status: MasterStatus
 }
@@ -42,6 +44,7 @@ const form = ref<TripSheetPublicForm>({
   toll_fee: null,
   parking_fee: null,
   stay_cost: null,
+  others: null,
   expense_notes: '',
   status: 'ACTIVE',
 })
@@ -141,6 +144,13 @@ const formatFileSize = (size: number) => {
 
 const buildAttachmentKey = (file: File) => `${file.name}-${file.size}-${file.lastModified}`
 
+const feeToInput = (v: number | string | null | undefined) => {
+  if (v == null || v === '')
+    return null
+  const n = typeof v === 'number' ? v : Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
 const buildFormData = () => {
   const data = new FormData()
   const existing = existingAttachments.value.filter((item) => item && item.trim())
@@ -162,6 +172,9 @@ const buildFormData = () => {
 
   if (form.value.stay_cost !== null && form.value.stay_cost !== undefined)
     data.append('stay_cost', String(form.value.stay_cost))
+
+  if (form.value.others !== null && form.value.others !== undefined)
+    data.append('others', String(form.value.others))
 
   if (form.value.expense_notes.trim())
     data.append('expense_notes', form.value.expense_notes.trim())
@@ -280,10 +293,11 @@ const loadTripSheet = async () => {
     form.value = {
       driver_id: response.data.driver_id || '',
       assistant_id: response.data.assistant_id || '',
-      fuel_cost: response.data.fuel_cost ?? null,
-      toll_fee: response.data.toll_fee ?? null,
-      parking_fee: response.data.parking_fee ?? null,
-      stay_cost: response.data.stay_cost ?? null,
+      fuel_cost: feeToInput(response.data.fuel_cost),
+      toll_fee: feeToInput(response.data.toll_fee),
+      parking_fee: feeToInput(response.data.parking_fee),
+      stay_cost: feeToInput(response.data.stay_cost),
+      others: feeToInput(response.data.others),
       expense_notes: response.data.expense_notes || '',
       status: response.data.status || 'ACTIVE',
     }
@@ -447,10 +461,71 @@ onBeforeUnmount(() => {
               />
             </VCol>
             <VCol cols="12" md="6"><VSelect v-model="form.status" :disabled="isPublicLocked || isSubmitting" label="Status" :items="['ACTIVE', 'INACTIVE']" /></VCol>
-            <VCol cols="12" md="3"><VTextField v-model.number="form.fuel_cost" :disabled="isPublicLocked || isSubmitting" label="Biaya BBM" type="number" /></VCol>
-            <VCol cols="12" md="3"><VTextField v-model.number="form.toll_fee" :disabled="isPublicLocked || isSubmitting" label="Biaya Tol" type="number" /></VCol>
-            <VCol cols="12" md="3"><VTextField v-model.number="form.parking_fee" :disabled="isPublicLocked || isSubmitting" label="Biaya Parkir" type="number" /></VCol>
-            <VCol cols="12" md="3"><VTextField v-model.number="form.stay_cost" :disabled="isPublicLocked || isSubmitting" label="Biaya Inap" type="number" /></VCol>
+            <VCol cols="12" md="3">
+              <VTextField
+                v-model.number="form.fuel_cost"
+                :disabled="isPublicLocked || isSubmitting"
+                label="Biaya BBM"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                autocomplete="off"
+                @keydown="blockKeysInvalidNumberMoneyInput"
+              />
+            </VCol>
+            <VCol cols="12" md="3">
+              <VTextField
+                v-model.number="form.toll_fee"
+                :disabled="isPublicLocked || isSubmitting"
+                label="Biaya Tol"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                autocomplete="off"
+                @keydown="blockKeysInvalidNumberMoneyInput"
+              />
+            </VCol>
+            <VCol cols="12" md="3">
+              <VTextField
+                v-model.number="form.parking_fee"
+                :disabled="isPublicLocked || isSubmitting"
+                label="Biaya Parkir"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                autocomplete="off"
+                @keydown="blockKeysInvalidNumberMoneyInput"
+              />
+            </VCol>
+            <VCol cols="12" md="3">
+              <VTextField
+                v-model.number="form.stay_cost"
+                :disabled="isPublicLocked || isSubmitting"
+                label="Biaya Inap"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                autocomplete="off"
+                @keydown="blockKeysInvalidNumberMoneyInput"
+              />
+            </VCol>
+            <VCol cols="12" md="3">
+              <VTextField
+                v-model.number="form.others"
+                :disabled="isPublicLocked || isSubmitting"
+                label="Biaya lain-lain"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                autocomplete="off"
+                @keydown="blockKeysInvalidNumberMoneyInput"
+              />
+            </VCol>
 
             <VCol cols="12">
               <div class="d-flex flex-wrap align-center justify-space-between gap-3 mb-2">

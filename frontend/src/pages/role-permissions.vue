@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import {
+  comparePermissionActions,
+  permissionActionTitle,
+  permissionResourceSortIndex,
+  permissionResourceTitle,
+} from '@/config/permission-ui-order'
 import { ApiError } from '@/services/http'
 import { roleMasterService, type RoleItem } from '@/services/masters'
 import { rolePermissionService, type RolePermissionItem } from '@/services/role-permission.service'
@@ -50,10 +56,18 @@ const groupedPermissions = computed(() => {
     groups.get(item.resource)!.push(item)
   }
 
-  return Array.from(groups.entries()).map(([resource, list]) => ({
-    resource,
-    list,
-  }))
+  return Array.from(groups.entries())
+    .map(([resource, list]) => ({
+      resource,
+      list: [...list].sort((x, y) => comparePermissionActions(x.action, y.action)),
+    }))
+    .sort((a, b) => {
+      const da = permissionResourceSortIndex(a.resource)
+      const db = permissionResourceSortIndex(b.resource)
+      if (da !== db)
+        return da - db
+      return a.resource.localeCompare(b.resource)
+    })
 })
 
 const activeCount = computed(() => permissions.value.filter(item => item.active).length)
@@ -238,7 +252,7 @@ onMounted(async () => {
             <VCardItem>
               <template #title>
                 <div class="d-flex align-center justify-space-between flex-wrap gap-2">
-                  <span class="text-subtitle-1 text-uppercase">{{ group.resource }}</span>
+                  <span class="text-subtitle-1 font-weight-medium">{{ permissionResourceTitle(group.resource) }}</span>
                   <VChip
                     size="small"
                     color="secondary"
@@ -263,8 +277,8 @@ onMounted(async () => {
                   v-for="item in group.list"
                   :key="item.id"
                 >
-                  <td class="font-weight-medium text-uppercase">
-                    {{ item.action }}
+                  <td class="font-weight-medium">
+                    {{ permissionActionTitle(item.action) }}
                   </td>
                   <td>{{ item.description || '-' }}</td>
                   <td class="text-end">

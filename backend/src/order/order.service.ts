@@ -1,18 +1,151 @@
 import {
-  Injectable,
-  NotFoundException,
   ConflictException,
+  Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateOrderDto, QueryOrderDto, UpdateOrderDto } from './dto/order.dto';
+import { Prisma } from 'generated/prisma/client';
+import { OrderStatus, Status } from 'generated/prisma/enums';
 import { CurrentUserType } from 'src/decorator/current-user.decorator';
 import { normalizeUserId } from 'src/utils/normalize-user-id.util';
-import { OrderStatus, Status } from 'generated/prisma/enums';
+import { decimalToMoneyString, toPrismaDecimal } from 'src/utils/money.util';
+import { normalizePrismaCount } from 'src/utils/pagination-total.util';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateOrderDto, QueryOrderDto, UpdateOrderDto } from './dto/order.dto';
+import { QueryOrderRecapDto } from './dto/order-recap.dto';
 
 @Injectable()
 export class OrderService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async recap(query: QueryOrderRecapDto) {
+    const start = new Date(Date.UTC(query.year, query.month - 1, 1, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(query.year, query.month, 1, 0, 0, 0, 0));
+
+    try {
+      const orders = await this.prisma.db.order.findMany({
+        where: {
+          deleted_at: null,
+          created_at: { gte: start, lt: end },
+        },
+        orderBy: { created_at: 'asc' },
+        select: {
+          id: true,
+          orders_uuid: true,
+          order_number: true,
+          customer_name: true,
+          customer_phone: true,
+          total_amount: true,
+          status: true,
+          created_at: true,
+          orderVehicles: {
+            where: { deleted_at: null },
+            select: {
+              tripSheets: {
+                where: { deleted_at: null },
+                select: {
+                  fuel_cost: true,
+                  toll_fee: true,
+                  parking_fee: true,
+                  stay_cost: true,
+                  others: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      let sumIncome = new Prisma.Decimal(0);
+      let sumExpense = new Prisma.Decimal(0);
+      let sumProfit = new Prisma.Decimal(0);
+
+      const data = orders.map((order) => {
+        const agg = this.aggregateTripSheetCosts(order.orderVehicles);
+        const income = order.total_amount != null ? new Prisma.Decimal(order.total_amount as any) : new Prisma.Decimal(0);
+        const expense = agg.total;
+        const profit = income.sub(expense);
+        const tripSheetCount = agg.tripSheetCount;
+
+        sumIncome = sumIncome.add(income);
+        sumExpense = sumExpense.add(expense);
+        sumProfit = sumProfit.add(profit);
+
+        return {
+          id: order.id.toString(),
+          orders_uuid: order.orders_uuid,
+          order_number: order.order_number,
+          customer_name: order.customer_name,
+          customer_phone: order.customer_phone,
+          status: order.status,
+          created_at: order.created_at,
+          trip_sheet_count: tripSheetCount,
+          income: decimalToMoneyString(income),
+          expense_fuel: decimalToMoneyString(agg.fuel),
+          expense_toll: decimalToMoneyString(agg.toll),
+          expense_parking: decimalToMoneyString(agg.parking),
+          expense_stay: decimalToMoneyString(agg.stay),
+          expense_others: decimalToMoneyString(agg.others),
+          total_expense: decimalToMoneyString(expense),
+          profit: decimalToMoneyString(profit),
+        };
+      });
+
+      return {
+        success: true,
+        message: 'Rekapitulasi pesanan berhasil diambil',
+        data,
+        summary: {
+          order_count: data.length,
+          total_income: decimalToMoneyString(sumIncome),
+          total_expense: decimalToMoneyString(sumExpense),
+          total_profit: decimalToMoneyString(sumProfit),
+        },
+        filter: {
+          month: query.month,
+          year: query.year,
+          created_from: start.toISOString(),
+          created_to_before: end.toISOString(),
+        },
+      };
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  private aggregateTripSheetCosts(
+    orderVehicles: Array<{ tripSheets: Array<{
+      fuel_cost: Prisma.Decimal | null;
+      toll_fee: Prisma.Decimal | null;
+      parking_fee: Prisma.Decimal | null;
+      stay_cost: Prisma.Decimal | null;
+      others: Prisma.Decimal | null;
+    }> }>,
+  ) {
+    let fuel = new Prisma.Decimal(0);
+    let toll = new Prisma.Decimal(0);
+    let parking = new Prisma.Decimal(0);
+    let stay = new Prisma.Decimal(0);
+    let others = new Prisma.Decimal(0);
+    let tripSheetCount = 0;
+
+    const d = (v: Prisma.Decimal | null | undefined) =>
+      v != null ? new Prisma.Decimal(v as any) : new Prisma.Decimal(0);
+
+    for (const ov of orderVehicles) {
+      for (const ts of ov.tripSheets ?? []) {
+        tripSheetCount += 1;
+        fuel = fuel.add(d(ts.fuel_cost));
+        toll = toll.add(d(ts.toll_fee));
+        parking = parking.add(d(ts.parking_fee));
+        stay = stay.add(d(ts.stay_cost));
+        others = others.add(d(ts.others));
+      }
+    }
+
+    const total = fuel.add(toll).add(parking).add(stay).add(others);
+    return { fuel, toll, parking, stay, others, total, tripSheetCount };
+  }
 
   async findAll(query: QueryOrderDto) {
     const page = Number(query.page) || 1;
@@ -36,15 +169,15 @@ export class OrderService {
         }),
         ...(query.search && {
           OR: [
-            { order_number: { contains: query.search } },
-            { customer_name: { contains: query.search } },
-            { customer_phone: { contains: query.search } },
-            { customer_email: { contains: query.search } },
+            { order_number: { contains: query.search, mode: 'insensitive' as const } },
+            { customer_name: { contains: query.search, mode: 'insensitive' as const } },
+            { customer_phone: { contains: query.search, mode: 'insensitive' as const } },
+            { customer_email: { contains: query.search, mode: 'insensitive' as const } },
           ],
         }),
       };
 
-      const [data, total] = await this.prisma.db.$transaction([
+      const [data, totalRaw] = await this.prisma.db.$transaction([
         this.prisma.db.order.findMany({
           where,
           skip,
@@ -76,10 +209,12 @@ export class OrderService {
         this.prisma.db.order.count({ where }),
       ]);
 
+      const total = normalizePrismaCount(totalRaw as number | bigint);
+
       return {
         success: true,
         message: 'Data order berhasil diambil',
-        data: data.map((o) => this.serializeOrder(o)),
+        data: data.map((order) => this.serializeOrder(order)),
         total,
         page,
         perPage,
@@ -147,14 +282,15 @@ export class OrderService {
         });
       }
 
-      const orderVehicles = order.orderVehicles.map((ov) => this.serializeOrderVehicle(ov));
-      const tripSheetLinks = order.orderVehicles.flatMap((ov) =>
-        (ov.tripSheets ?? []).map((ts) => ({
-          order_vehicle_id: ov.id?.toString() ?? null,
-          trip_sheets_uuid: ts.trip_sheets_uuid,
-          url: this.buildTripSheetLink(order.order_number, ts.trip_sheets_uuid),
-        }))
+      const orderVehicles = order.orderVehicles.map((orderVehicle) => this.serializeOrderVehicle(orderVehicle));
+      const tripSheetLinks = order.orderVehicles.flatMap((orderVehicle) =>
+        (orderVehicle.tripSheets ?? []).map((tripSheet) => ({
+          order_vehicle_id: orderVehicle.id?.toString() ?? null,
+          trip_sheets_uuid: tripSheet.trip_sheets_uuid,
+          url: this.buildTripSheetLink(order.order_number, tripSheet.trip_sheets_uuid),
+        })),
       );
+
       return {
         success: true,
         message: 'Data order berhasil diambil',
@@ -167,7 +303,8 @@ export class OrderService {
         },
       };
     } catch (error: unknown) {
-      if (error instanceof NotFoundException) throw error;
+      if (error instanceof NotFoundException)
+        throw error;
       return this.handleError(error);
     }
   }
@@ -175,13 +312,11 @@ export class OrderService {
   async create(dto: CreateOrderDto, user: CurrentUserType) {
     try {
       const orderNumber = await this.resolveOrderNumber(dto.order_number);
-
       await this.validateVehicles(dto.vehicles ?? []);
 
+      const { resolvedUsageDate, resolvedStartDate, resolvedFinishDate } = this.resolveDateAliases(dto);
+
       const userId = normalizeUserId(user.id);
-      const resolvedStartDate = dto.start_date ?? dto.usage_date;
-      const resolvedFinishDate = dto.finish_date ?? dto.start_date ?? dto.usage_date;
-      const resolvedUsageDate = dto.usage_date ?? dto.start_date ?? dto.finish_date;
       const resolvedDropoffLocation = dto.destination ?? dto.dropoff_location;
 
       const result = await this.prisma.db.$transaction(async (tx) => {
@@ -200,7 +335,7 @@ export class OrderService {
             dropoff_location: resolvedDropoffLocation,
             destination: resolvedDropoffLocation,
             total_vehicles: dto.vehicles?.length ?? dto.total_vehicles ?? null,
-            total_amount: dto.total_amount,
+            total_amount: toPrismaDecimal(dto.total_amount),
             status: dto.status ?? OrderStatus.PENDING,
             notes: dto.notes,
             created_by: userId,
@@ -239,21 +374,48 @@ export class OrderService {
         return { order, orderVehicles, tripSheets };
       });
 
+      const freshOrder = await this.prisma.db.order.findUnique({
+        where: { id: result.order.id },
+        select: {
+          id: true,
+          orders_uuid: true,
+          order_number: true,
+          customer_name: true,
+          customer_phone: true,
+          customer_email: true,
+          order_date: true,
+          usage_date: true,
+          start_date: true,
+          finish_date: true,
+          standby_time: true,
+          pickup_location: true,
+          dropoff_location: true,
+          destination: true,
+          total_vehicles: true,
+          total_amount: true,
+          status: true,
+          notes: true,
+          created_at: true,
+          updated_at: true,
+        },
+      });
+
       return {
         success: true,
         message: 'Order berhasil dibuat',
         data: {
-          ...this.serializeOrder(result.order),
-          orderVehicles: result.orderVehicles.map((ov) => this.serializeOrderVehicle(ov)),
-          trip_sheet_links: result.tripSheets.map((ts, index) => ({
+          ...this.serializeOrder(freshOrder ?? result.order),
+          orderVehicles: result.orderVehicles.map((orderVehicle) => this.serializeOrderVehicle(orderVehicle)),
+          trip_sheet_links: result.tripSheets.map((tripSheet, index) => ({
             order_vehicle_id: result.orderVehicles[index]?.id?.toString() ?? null,
-            trip_sheets_uuid: ts.trip_sheets_uuid,
-            url: this.buildTripSheetLink(result.order.order_number, ts.trip_sheets_uuid),
+            trip_sheets_uuid: tripSheet.trip_sheets_uuid,
+            url: this.buildTripSheetLink(result.order.order_number, tripSheet.trip_sheets_uuid),
           })),
         },
       };
     } catch (error: unknown) {
-      if (error instanceof ConflictException || error instanceof NotFoundException) throw error;
+      if (error instanceof ConflictException || error instanceof NotFoundException)
+        throw error;
       return this.handleError(error);
     }
   }
@@ -278,6 +440,7 @@ export class OrderService {
             deleted_at: null,
             NOT: { id: BigInt(id) },
           },
+          select: { id: true },
         });
         if (exists) {
           throw new ConflictException({
@@ -290,9 +453,7 @@ export class OrderService {
       await this.validateVehicles(dto.vehicles ?? []);
 
       const userId = normalizeUserId(user.id);
-      const resolvedStartDate = dto.start_date ?? dto.usage_date;
-      const resolvedFinishDate = dto.finish_date ?? dto.start_date ?? dto.usage_date;
-      const resolvedUsageDate = dto.usage_date ?? dto.start_date ?? dto.finish_date;
+      const { resolvedUsageDate, resolvedStartDate, resolvedFinishDate } = this.resolveDateAliases(dto);
       const resolvedDropoffLocation = dto.destination ?? dto.dropoff_location;
       const shouldUpdateDateAliases =
         dto.start_date !== undefined || dto.finish_date !== undefined || dto.usage_date !== undefined;
@@ -315,7 +476,7 @@ export class OrderService {
             ...(dto.pickup_location !== undefined && { pickup_location: dto.pickup_location }),
             ...(shouldUpdateDestinationAliases && { dropoff_location: resolvedDropoffLocation }),
             ...(shouldUpdateDestinationAliases && { destination: resolvedDropoffLocation }),
-            ...(dto.total_amount !== undefined && { total_amount: dto.total_amount }),
+            ...(dto.total_amount !== undefined && { total_amount: toPrismaDecimal(dto.total_amount) }),
             ...(dto.status !== undefined && { status: dto.status }),
             ...(dto.notes !== undefined && { notes: dto.notes }),
             ...(dto.vehicles !== undefined && { total_vehicles: dto.vehicles.length }),
@@ -333,7 +494,7 @@ export class OrderService {
           });
 
           if (existing.length > 0) {
-            const existingIds = existing.map((o) => o.id);
+            const existingIds = existing.map((item) => item.id);
             await tx.orderVehicle.updateMany({
               where: { id: { in: existingIds } },
               data: { deleted_at: new Date(), deleted_by: userId },
@@ -370,33 +531,78 @@ export class OrderService {
             });
             tripSheets.push(tripSheet);
           }
+        } else if (shouldUpdateDestinationAliases) {
+          const activeOrderVehicles = await tx.orderVehicle.findMany({
+            where: { order_id: BigInt(id), deleted_at: null },
+            select: { id: true },
+          });
+
+          if (activeOrderVehicles.length > 0) {
+            await tx.tripSheet.updateMany({
+              where: {
+                order_vehicle_id: { in: activeOrderVehicles.map((item) => item.id) },
+                deleted_at: null,
+              },
+              data: {
+                destination: updated.destination ?? updated.dropoff_location,
+              },
+            });
+          }
         }
 
         return { updated, orderVehicles, tripSheets };
+      });
+
+      const freshOrder = await this.prisma.db.order.findUnique({
+        where: { id: result.updated.id },
+        select: {
+          id: true,
+          orders_uuid: true,
+          order_number: true,
+          customer_name: true,
+          customer_phone: true,
+          customer_email: true,
+          order_date: true,
+          usage_date: true,
+          start_date: true,
+          finish_date: true,
+          standby_time: true,
+          pickup_location: true,
+          dropoff_location: true,
+          destination: true,
+          total_vehicles: true,
+          total_amount: true,
+          status: true,
+          notes: true,
+          created_at: true,
+          updated_at: true,
+        },
       });
 
       return {
         success: true,
         message: 'Order berhasil diperbarui',
         data: {
-          ...this.serializeOrder(result.updated),
+          ...this.serializeOrder(freshOrder ?? result.updated),
           ...(dto.vehicles
             ? {
-                orderVehicles: result.orderVehicles.map((ov) => this.serializeOrderVehicle(ov)),
-                trip_sheet_links: result.tripSheets.map((ts, index) => ({
+                orderVehicles: result.orderVehicles.map((orderVehicle) => this.serializeOrderVehicle(orderVehicle)),
+                trip_sheet_links: result.tripSheets.map((tripSheet, index) => ({
                   order_vehicle_id: result.orderVehicles[index]?.id?.toString() ?? null,
-                  trip_sheets_uuid: ts.trip_sheets_uuid,
-                  url: this.buildTripSheetLink(result.updated.order_number, ts.trip_sheets_uuid),
+                  trip_sheets_uuid: tripSheet.trip_sheets_uuid,
+                  url: this.buildTripSheetLink(result.updated.order_number, tripSheet.trip_sheets_uuid),
                 })),
               }
             : {}),
         },
       };
     } catch (error: unknown) {
-      if (error instanceof NotFoundException || error instanceof ConflictException) throw error;
+      if (error instanceof NotFoundException || error instanceof ConflictException)
+        throw error;
       return this.handleError(error);
     }
   }
+
   async remove(id: number, user: CurrentUserType) {
     try {
       const order = await this.prisma.db.order.findFirst({
@@ -424,7 +630,7 @@ export class OrderService {
         });
 
         if (orderVehicles.length > 0) {
-          const ids = orderVehicles.map((o) => o.id);
+          const ids = orderVehicles.map((item) => item.id);
           await tx.orderVehicle.updateMany({
             where: { id: { in: ids } },
             data: { deleted_at: new Date(), deleted_by: userId },
@@ -442,7 +648,8 @@ export class OrderService {
         message: `Order "${order.order_number}" berhasil dihapus`,
       };
     } catch (error: unknown) {
-      if (error instanceof NotFoundException) throw error;
+      if (error instanceof NotFoundException)
+        throw error;
       return this.handleError(error);
     }
   }
@@ -488,10 +695,23 @@ export class OrderService {
     }
   }
 
+  private resolveDateAliases(dto: Pick<CreateOrderDto, 'usage_date' | 'start_date' | 'finish_date'>) {
+    const resolvedStartDate = dto.start_date ?? dto.usage_date;
+    const resolvedFinishDate = dto.finish_date ?? dto.start_date ?? dto.usage_date;
+    const resolvedUsageDate = dto.usage_date ?? dto.start_date ?? dto.finish_date;
+
+    return {
+      resolvedStartDate,
+      resolvedFinishDate,
+      resolvedUsageDate,
+    };
+  }
+
   private async validateVehicles(vehicles: { vehicle_id: string; driver_id?: string; assistant_driver_id?: string }[]) {
     for (const item of vehicles) {
       const vehicle = await this.prisma.db.vehicle.findFirst({
         where: { id: BigInt(item.vehicle_id), deleted_at: null },
+        select: { id: true },
       });
       if (!vehicle) {
         throw new NotFoundException({
@@ -503,6 +723,7 @@ export class OrderService {
       if (item.driver_id) {
         const driver = await this.prisma.db.driver.findFirst({
           where: { id: BigInt(item.driver_id), deleted_at: null },
+          select: { id: true },
         });
         if (!driver) {
           throw new NotFoundException({
@@ -515,6 +736,7 @@ export class OrderService {
       if (item.assistant_driver_id) {
         const driver = await this.prisma.db.driver.findFirst({
           where: { id: BigInt(item.assistant_driver_id), deleted_at: null },
+          select: { id: true },
         });
         if (!driver) {
           throw new NotFoundException({
@@ -533,32 +755,32 @@ export class OrderService {
     return baseUrl ? `${baseUrl}${path}` : path;
   }
 
-  private serializeOrder(o: any) {
+  private serializeOrder(order: any) {
     return {
-      ...o,
-      id: o.id?.toString(),
-      total_amount: o.total_amount !== null && o.total_amount !== undefined ? Number(o.total_amount) : null,
-      start_date: o.start_date ?? o.usage_date ?? null,
-      finish_date: o.finish_date ?? o.usage_date ?? null,
-      destination: o.destination ?? o.dropoff_location ?? null,
+      ...order,
+      id: order.id?.toString(),
+      total_amount: decimalToMoneyString(order.total_amount),
+      start_date: order.start_date ?? order.usage_date ?? null,
+      finish_date: order.finish_date ?? order.usage_date ?? null,
+      destination: order.destination ?? order.dropoff_location ?? null,
     };
   }
 
-  private serializeOrderVehicle(ov: any) {
+  private serializeOrderVehicle(orderVehicle: any) {
     return {
-      ...ov,
-      id: ov.id?.toString(),
-      order_id: ov.order_id?.toString() ?? null,
-      vehicle_id: ov.vehicle_id?.toString() ?? null,
-      driver_id: ov.driver_id?.toString() ?? null,
-      assistant_driver_id: ov.assistant_driver_id?.toString() ?? null,
-      vehicle: ov.vehicle ? { ...ov.vehicle, id: ov.vehicle.id.toString() } : (ov.vehicle ?? null),
-      driver: ov.driver ? { ...ov.driver, id: ov.driver.id.toString() } : (ov.driver ?? null),
-      assistantDriver: ov.assistantDriver ? { ...ov.assistantDriver, id: ov.assistantDriver.id.toString() } : (ov.assistantDriver ?? null),
-      tripSheets: ov.tripSheets
-        ? ov.tripSheets.map((ts: any) => ({
-            ...ts,
-            id: ts.id?.toString(),
+      ...orderVehicle,
+      id: orderVehicle.id?.toString(),
+      order_id: orderVehicle.order_id?.toString() ?? null,
+      vehicle_id: orderVehicle.vehicle_id?.toString() ?? null,
+      driver_id: orderVehicle.driver_id?.toString() ?? null,
+      assistant_driver_id: orderVehicle.assistant_driver_id?.toString() ?? null,
+      vehicle: orderVehicle.vehicle ? { ...orderVehicle.vehicle, id: orderVehicle.vehicle.id.toString() } : (orderVehicle.vehicle ?? null),
+      driver: orderVehicle.driver ? { ...orderVehicle.driver, id: orderVehicle.driver.id.toString() } : (orderVehicle.driver ?? null),
+      assistantDriver: orderVehicle.assistantDriver ? { ...orderVehicle.assistantDriver, id: orderVehicle.assistantDriver.id.toString() } : (orderVehicle.assistantDriver ?? null),
+      tripSheets: orderVehicle.tripSheets
+        ? orderVehicle.tripSheets.map((tripSheet: any) => ({
+            ...tripSheet,
+            id: tripSheet.id?.toString(),
           }))
         : undefined,
     };
@@ -574,8 +796,3 @@ export class OrderService {
     throw new InternalServerErrorException('Operation failed');
   }
 }
-
-
-
-
-

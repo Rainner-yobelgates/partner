@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateRouteDto, QueryRouteDto, UpdateRouteDto } from './dto/route.dto';
 import { CurrentUserType } from 'src/decorator/current-user.decorator';
 import { normalizeUserId } from 'src/utils/normalize-user-id.util';
+import { normalizePrismaCount } from 'src/utils/pagination-total.util';
 
 @Injectable()
 export class RouteService {
@@ -34,7 +35,7 @@ export class RouteService {
         }),
       };
 
-      const [data, total] = await this.prisma.db.$transaction([
+      const [data, totalRaw] = await this.prisma.db.$transaction([
         this.prisma.db.route.findMany({
           where,
           skip,
@@ -54,6 +55,8 @@ export class RouteService {
         }),
         this.prisma.db.route.count({ where }),
       ]);
+
+      const total = normalizePrismaCount(totalRaw as number | bigint);
 
       return {
         success: true,

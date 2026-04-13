@@ -1,13 +1,13 @@
 import * as bcrypt from 'bcrypt';
-import { DriverType, OrderStatus, Permission, PrismaClient, ServiceType, Status, VehicleType } from '../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { DriverType, OrderStatus, Permission, PrismaClient, ServiceType, Status, VehicleType } from '../generated/prisma/client';
+
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({adapter});
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log('🌱 Seeding database...');
+  console.log('Seeding database...');
 
-  // ROLES
   const superAdminRole = await prisma.role.upsert({
     where: { name: 'Super Admin' },
     update: {},
@@ -26,39 +26,52 @@ async function main() {
     create: { name: 'Operator', description: 'Operational access', status: Status.ACTIVE },
   });
 
-  console.log('✔ Roles seeded');
+  console.log('Roles seeded');
 
-  // PERMISSIONS
-  const resources = ['user', 'role', 'vehicle', 'vehicle-service', 'driver', 'route', 'contract', 'order', 'shuttle', 'trip_sheet', 'facility'];
+  const recapResources = ['client-recap', 'order-recap'];
+  const resources = ['user', 'role', 'vehicle', 'vehicle-service', 'driver', 'route', 'client', 'contract', 'order', 'shuttle', 'trip_sheet', 'facility'];
   const actions = ['create', 'read', 'update', 'delete', 'detail'];
 
-  const permissions:Permission[] = [];
+  const permissions: Permission[] = [];
   for (const resource of resources) {
     for (const action of actions) {
-      const perm = await prisma.permission.upsert({
+      const permission = await prisma.permission.upsert({
         where: { resource_action: { resource, action } },
         update: {},
         create: { resource, action, description: `Can ${action} ${resource}` },
       });
-      permissions.push(perm);
+      permissions.push(permission);
     }
   }
+  for (const resource of recapResources) {
+    const action = 'read';
 
-  console.log('✔ Permissions seeded');
+    const permission = await prisma.permission.upsert({
+      where: { resource_action: { resource, action } },
+      update: {},
+      create: {
+        resource,
+        action,
+        description: `Can ${action} ${resource}`,
+      },
+    });
 
-  // ROLE PERMISSIONS (Super Admin gets all)
-  for (const perm of permissions) {
+    permissions.push(permission);
+  }
+
+  console.log('Permissions seeded');
+
+  for (const permission of permissions) {
     await prisma.rolePermission.create({
-      data: { role_id: superAdminRole.id, permission_id: perm.id },
+      data: { role_id: superAdminRole.id, permission_id: permission.id },
     }).catch(() => {});
   }
 
-  console.log('✔ Role permissions seeded');
+  console.log('Role permissions seeded');
 
-  // USERS
-  const hash = (p: string) => bcrypt.hashSync(p, 10);
+  const hash = (plain: string) => bcrypt.hashSync(plain, 10);
 
-  const superAdmin = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: 'superadmin@example.com' },
     update: {},
     create: {
@@ -94,9 +107,8 @@ async function main() {
     },
   });
 
-  console.log('✔ Users seeded');
+  console.log('Users seeded');
 
-  // VEHICLES
   const vehicle1 = await prisma.vehicle.create({
     data: {
       plate_number: 'B 1234 ABC',
@@ -109,7 +121,7 @@ async function main() {
     },
   });
 
-  const vehicle2 = await prisma.vehicle.create({
+  await prisma.vehicle.create({
     data: {
       plate_number: 'B 5678 DEF',
       hull_number: 'HN-002',
@@ -121,9 +133,8 @@ async function main() {
     },
   });
 
-  console.log('✔ Vehicles seeded');
+  console.log('Vehicles seeded');
 
-  // DRIVERS
   const driver1 = await prisma.driver.create({
     data: {
       name: 'Budi Santoso',
@@ -150,9 +161,8 @@ async function main() {
     },
   });
 
-  console.log('✔ Drivers seeded');
+  console.log('Drivers seeded');
 
-  // VEHICLE SERVICE
   await prisma.vehicleService.create({
     data: {
       vehicle_id: vehicle1.id,
@@ -165,9 +175,8 @@ async function main() {
     },
   });
 
-  console.log('✔ Vehicle services seeded');
+  console.log('Vehicle services seeded');
 
-  // ROUTE
   const route = await prisma.route.create({
     data: {
       origin: 'Jakarta Pusat',
@@ -179,43 +188,46 @@ async function main() {
     },
   });
 
-  console.log('✔ Routes seeded');
+  console.log('Routes seeded');
 
-  // CONTRACT
-  const contract = await prisma.contract.create({
-    data: {
-      contract_number: 'CTR-2025-001',
-      contact_person: 'Bapak Ahmad Fauzi',
-      phone_number: '021-5551234',
-      email: 'ahmad@ptabc.co.id',
+  const client = await prisma.client.upsert({
+    where: { name: 'PT. ABC Indonesia' },
+    update: {},
+    create: {
+      name: 'PT. ABC Indonesia',
+      code: 'ABC',
+      contact_person: 'Ibu Lestari',
+      phone_number: '021-1234567',
+      email: 'procurement@ptabc.co.id',
       address: 'Jl. Sudirman Kav. 52, Jakarta',
-      start_date: new Date('2025-01-01'),
-      end_date: new Date('2025-12-31'),
       status: Status.ACTIVE,
       created_by: admin.id,
     },
   });
 
-  // CONTRACT INVOICE
-  await prisma.contractInvoice.create({
+  console.log('Clients seeded');
+
+  const contract = await prisma.contract.create({
     data: {
-      contract_id: contract.id,
-      period_month: 4,
-      period_year: 2025,
-      gross_amount: 50000000,
-      tax_amount: 5500000,
-      net_amount: 55500000,
-      status: 'UNPAID',
+      contract_number: 'CTR-2025-001',
+      client_id: client.id,
+      contract_month: 4,
+      contract_year: 2025,
+      contact_person: 'Bapak Ahmad Fauzi',
+      phone_number: '021-5551234',
+      email: 'ahmad@ptabc.co.id',
+      contract_value: 3500000,
+      address: 'Jl. Sudirman Kav. 52, Jakarta',
+      status: Status.ACTIVE,
       created_by: admin.id,
     },
   });
 
-  console.log('✔ Contracts & invoices seeded');
+  console.log('Contracts seeded');
 
-  // SHUTTLE
   await prisma.shuttle.create({
     data: {
-      contract_id: contract.id,
+      client_id: client.id,
       vehicle_id: vehicle1.id,
       route_id: route.id,
       scheduled_date: new Date('2025-04-15'),
@@ -228,9 +240,8 @@ async function main() {
     },
   });
 
-  console.log('✔ Shuttles seeded');
+  console.log('Shuttles seeded');
 
-  // ORDER
   const order = await prisma.order.create({
     data: {
       order_number: 'ORD-2025-0001',
@@ -239,9 +250,12 @@ async function main() {
       customer_email: 'booking@sejahtera.co.id',
       order_date: new Date('2025-04-01'),
       usage_date: new Date('2025-04-20'),
+      start_date: new Date('2025-04-20'),
+      finish_date: new Date('2025-04-20'),
       standby_time: new Date('2025-04-20T07:00:00'),
       pickup_location: 'Gedung Wisma 46, Jakarta Pusat',
       dropoff_location: 'Bandara Soekarno-Hatta',
+      destination: 'Bandara Soekarno-Hatta',
       total_vehicles: 1,
       total_amount: 1500000,
       status: OrderStatus.CONFIRMED,
@@ -250,7 +264,6 @@ async function main() {
     },
   });
 
-  // ORDER VEHICLE
   const orderVehicle = await prisma.orderVehicle.create({
     data: {
       order_id: order.id,
@@ -262,9 +275,8 @@ async function main() {
     },
   });
 
-  console.log('✔ Orders seeded');
+  console.log('Orders seeded');
 
-  // TRIP SHEET
   await prisma.tripSheet.create({
     data: {
       order_vehicle_id: orderVehicle.id,
@@ -274,26 +286,23 @@ async function main() {
       fuel_cost: 150000,
       toll_fee: 45000,
       parking_fee: 20000,
+      others: 0,
       expense_notes: 'BBM Pertamax + tol lingkar luar',
       status: Status.ACTIVE,
       created_by: admin.id,
     },
   });
 
-  console.log('✔ Trip sheets seeded');
-
-  console.log('\n✅ Seeding completed!');
-  console.log('\n👤 Login credentials:');
-  console.log('   superadmin@example.com / SuperAdmin123!');
-  console.log('   admin@example.com      / Admin123!');
-  console.log('   operator@example.com   / Operator123!');
+  console.log('Trip sheets seeded');
+  console.log('Seeding completed');
 }
 
 main()
-  .catch((e) => {
-    console.error('❌ Seeding failed:', e);
+  .catch((error) => {
+    console.error('Seeding failed:', error);
     process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();
   });
+

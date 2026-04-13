@@ -24,7 +24,7 @@ export type RolePermissionResponse = {
 
 export const rolePermissionService = {
   getByRoleId(roleId: string | number) {
-    return request<RolePermissionResponse>(`/roles/${roleId}/permissions`)
+    return request<RolePermissionResponse>(`/roles/${roleId}/permissions`, { method: 'GET' })
   },
   updateBulk(roleId: string | number, permissionIds: string[]) {
     return request<RolePermissionResponse>(`/roles/${roleId}/permissions`, {

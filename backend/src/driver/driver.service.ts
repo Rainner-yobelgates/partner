@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateDriverDto, QueryDriverDto, UpdateDriverDto } from './dto/driver.dto';
 import { CurrentUserType } from 'src/decorator/current-user.decorator';
 import { normalizeUserId } from 'src/utils/normalize-user-id.util';
+import { normalizePrismaCount } from 'src/utils/pagination-total.util';
 
 @Injectable()
 export class DriverService {
@@ -36,7 +37,7 @@ export class DriverService {
         }),
       };
 
-      const [data, total] = await this.prisma.db.$transaction([
+      const [data, totalRaw] = await this.prisma.db.$transaction([
         this.prisma.db.driver.findMany({
           where,
           skip,
@@ -64,6 +65,8 @@ export class DriverService {
         }),
         this.prisma.db.driver.count({ where }),
       ]);
+
+      const total = normalizePrismaCount(totalRaw as number | bigint);
 
       return {
         success: true,

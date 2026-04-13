@@ -2,6 +2,7 @@
 import { ApiError } from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { facilityMasterService, type FacilityItem, type MasterStatus } from '@/services/masters'
+import { blockKeysInvalidNumberMoneyInput } from '@/utils/money-input'
 
 type FacilityForm = {
   name: string
@@ -296,7 +297,12 @@ onMounted(fetchFacilities)
                 v-model.number="form.cost"
                 label="Biaya"
                 type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                autocomplete="off"
                 :rules="[v => v !== null && v !== '' || 'Biaya wajib diisi']"
+                @keydown="blockKeysInvalidNumberMoneyInput"
               />
             </VCol>
             <VCol cols="12" md="6"><VSelect v-model="form.status" label="Status" :items="['ACTIVE','INACTIVE']" /></VCol>

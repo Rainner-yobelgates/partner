@@ -43,13 +43,13 @@ export class ShuttleController {
   @ApiOperation({
     summary: 'Ambil semua data shuttle',
     description:
-      'Menampilkan daftar shuttle dengan pagination, filter (contract_id, vehicle_id, route_id, status, rentang tanggal), dan sorting.',
+      'Menampilkan daftar shuttle dengan pagination, filter (client_id, vehicle_id, route_id, status, rentang tanggal), dan sorting.',
   })
   @ApiQuery({ name: 'page', required: false, example: '1', description: 'Halaman saat ini' })
   @ApiQuery({ name: 'perPage', required: false, example: '10', description: 'Jumlah data per halaman' })
   @ApiQuery({ name: 'sortBy', required: false, example: 'scheduled_date', description: 'Field untuk sorting' })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], example: 'desc', description: 'Arah sorting' })
-  @ApiQuery({ name: 'contract_id', required: false, example: '1', description: 'Filter berdasarkan ID kontrak' })
+  @ApiQuery({ name: 'client_id', required: false, example: '1', description: 'Filter berdasarkan ID klien' })
   @ApiQuery({ name: 'vehicle_id', required: false, example: '2', description: 'Filter berdasarkan ID kendaraan' })
   @ApiQuery({ name: 'route_id', required: false, example: '3', description: 'Filter berdasarkan ID rute' })
   @ApiQuery({ name: 'status', required: false, enum: Status, description: 'Filter berdasarkan status shuttle' })
@@ -66,17 +66,17 @@ export class ShuttleController {
           {
             id: '1',
             shuttles_uuid: '550e8400-e29b-41d4-a716-446655440000',
-            contract_id: '1',
+            client_id: '1',
             vehicle_id: '2',
             route_id: '3',
-            contract: { id: '1', contract_number: 'KTR-2024-001', contact_person: 'Budi Santoso' },
+            client: { id: '1', clients_uuid: '...', name: 'PT Contoh', code: 'CTH' },
             vehicle: { id: '2', plate_number: 'B 1234 ABC', vehicle_type: 'HIACE' },
             route: { id: '3', origin: 'Jakarta', destination: 'Bandung' },
-            crew_incentive: 150000,
+            crew_incentive: '150000.00',
             scheduled_date: '2024-06-15T07:00:00.000Z',
-            fuel: 200000,
-            toll_fee: 50000,
-            others: 25000,
+            fuel: '200000.00',
+            toll_fee: '50000.00',
+            others: '25000.00',
             status: 'ACTIVE',
             created_at: '2024-06-01T08:00:00.000Z',
             updated_at: '2024-06-01T08:00:00.000Z',
@@ -101,7 +101,7 @@ export class ShuttleController {
   @Permission('shuttle', 'detail')
   @ApiOperation({
     summary: 'Ambil detail shuttle by UUID',
-    description: 'Menampilkan detail satu shuttle beserta info lengkap kontrak, kendaraan, dan rute.',
+    description: 'Menampilkan detail satu shuttle beserta klien, kendaraan, dan rute.',
   })
   @ApiParam({
     name: 'uuid',
@@ -118,16 +118,10 @@ export class ShuttleController {
         data: {
           id: '1',
           shuttles_uuid: '550e8400-e29b-41d4-a716-446655440000',
-          contract_id: '1',
+          client_id: '1',
           vehicle_id: '2',
           route_id: '3',
-          contract: {
-            id: '1',
-            contract_number: 'KTR-2024-001',
-            contact_person: 'Budi Santoso',
-            phone_number: '08123456789',
-            email: 'budi@perusahaan.com',
-          },
+          client: { id: '1', clients_uuid: '...', name: 'PT Contoh', code: 'CTH', contact_person: 'Ibu Ana', phone_number: '021-111', email: 'a@x.com' },
           vehicle: {
             id: '2',
             plate_number: 'B 1234 ABC',
@@ -142,11 +136,11 @@ export class ShuttleController {
             distance: 150.5,
             estimated_time: 180,
           },
-          crew_incentive: 150000,
+          crew_incentive: '150000.00',
           scheduled_date: '2024-06-15T07:00:00.000Z',
-          fuel: 200000,
-          toll_fee: 50000,
-          others: 25000,
+          fuel: '200000.00',
+          toll_fee: '50000.00',
+          others: '25000.00',
           status: 'ACTIVE',
           created_by: '1',
           updated_by: null,
@@ -179,7 +173,7 @@ export class ShuttleController {
   @ApiOperation({
     summary: 'Buat shuttle baru',
     description:
-      'Membuat data shuttle baru. `contract_id`, `vehicle_id`, dan `route_id` akan divalidasi keberadaannya jika diberikan.',
+      'Membuat data shuttle baru. `client_id` wajib (hubungan dengan kontrak hanya lewat klien yang sama di master kontrak). `vehicle_id` dan `route_id` divalidasi jika diberikan.',
   })
   @ApiBody({ type: CreateShuttleDto })
   @ApiResponse({
@@ -192,14 +186,14 @@ export class ShuttleController {
         data: {
           id: '2',
           shuttles_uuid: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
-          contract_id: '1',
+          client_id: '1',
           vehicle_id: '2',
           route_id: '3',
-          crew_incentive: 150000,
+          crew_incentive: '150000.00',
           scheduled_date: '2024-07-01T07:00:00.000Z',
-          fuel: 200000,
-          toll_fee: 50000,
-          others: 0,
+          fuel: '200000.00',
+          toll_fee: '50000.00',
+          others: '0.00',
           status: 'ACTIVE',
           created_at: '2024-06-20T09:00:00.000Z',
           updated_at: '2024-06-20T09:00:00.000Z',
@@ -209,7 +203,7 @@ export class ShuttleController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Kontrak / kendaraan / rute tidak ditemukan',
+    description: 'Klien / kendaraan / rute tidak ditemukan',
     schema: {
       example: {
         success: false,
@@ -243,14 +237,14 @@ export class ShuttleController {
         data: {
           id: '1',
           shuttles_uuid: '550e8400-e29b-41d4-a716-446655440000',
-          contract_id: '1',
+          client_id: '1',
           vehicle_id: '3',
           route_id: '3',
-          crew_incentive: 175000,
+          crew_incentive: '175000.00',
           scheduled_date: '2024-06-20T07:00:00.000Z',
-          fuel: 220000,
-          toll_fee: 55000,
-          others: 30000,
+          fuel: '220000.00',
+          toll_fee: '55000.00',
+          others: '30000.00',
           status: 'ACTIVE',
           updated_by: '1',
           updated_at: '2024-06-10T10:00:00.000Z',
@@ -258,7 +252,7 @@ export class ShuttleController {
       },
     },
   })
-  @ApiResponse({ status: 404, description: 'Shuttle / kontrak / kendaraan / rute tidak ditemukan' })
+  @ApiResponse({ status: 404, description: 'Shuttle / klien / kendaraan / rute tidak ditemukan' })
   update(
     @Param('id') id: number,
     @Body() dto: UpdateShuttleDto,

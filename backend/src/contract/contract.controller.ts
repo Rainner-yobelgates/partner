@@ -20,6 +20,7 @@ import {
   ApiBody,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { QueryContractRecapDto } from './dto/contract-recap.dto';
 import { CreateContractDto, UpdateContractDto, QueryContractDto } from './dto/contract.dto';
 import { ContractService } from './contract.service';
 import { JwtAuthGuard } from 'src/guard/jwt-auth.guard';
@@ -43,7 +44,7 @@ export class ContractController {
   @ApiOperation({
     summary: 'Ambil semua kontrak',
     description:
-      'Menampilkan daftar kontrak dengan pagination, search, filter status / active_on, dan sorting.',
+      'Menampilkan daftar kontrak dengan pagination, search, filter status / client / bulan–tahun kontrak, dan sorting.',
   })
   @ApiQuery({ name: 'page', required: false, example: '1', description: 'Halaman saat ini' })
   @ApiQuery({ name: 'perPage', required: false, example: '10', description: 'Jumlah data per halaman' })
@@ -56,12 +57,6 @@ export class ContractController {
   @ApiQuery({ name: 'sortBy', required: false, example: 'created_at', description: 'Field untuk sorting' })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], example: 'desc', description: 'Arah sorting' })
   @ApiQuery({ name: 'status', required: false, enum: Status, description: 'Filter berdasarkan status kontrak' })
-  @ApiQuery({
-    name: 'active_on',
-    required: false,
-    example: '2024-06-01T00:00:00.000Z',
-    description: 'Filter kontrak yang aktif pada tanggal tertentu (start_date ≤ tanggal ≤ end_date)',
-  })
   @ApiResponse({
     status: 200,
     description: 'Data kontrak berhasil diambil',
@@ -74,12 +69,14 @@ export class ContractController {
             id: '1',
             contracts_uuid: '550e8400-e29b-41d4-a716-446655440000',
             contract_number: 'KTR-2024-001',
+            client_id: '1',
+            contract_month: 4,
+            contract_year: 2026,
             contact_person: 'Budi Santoso',
             phone_number: '08123456789',
             email: 'budi@perusahaan.com',
             address: 'Jl. Sudirman No. 10, Jakarta',
-            start_date: '2024-01-01T00:00:00.000Z',
-            end_date: '2024-12-31T23:59:59.999Z',
+            contract_value: '3500000.00',
             status: 'ACTIVE',
             created_at: '2024-01-01T08:00:00.000Z',
             updated_at: '2024-01-01T08:00:00.000Z',
@@ -95,6 +92,47 @@ export class ContractController {
   @ApiResponse({ status: 500, description: 'Internal server error' })
   findAll(@Query() query: QueryContractDto) {
     return this.contractService.findAll(query);
+  }
+
+  // ──────────────────────────────────────────
+  // REKAPITULASI KONTRAK (harus sebelum @Get(':uuid'))
+  // ──────────────────────────────────────────
+  @Get('recap/default')
+  @Permission('client-recap', 'read')
+  @ApiOperation({
+    summary: 'Default filter rekap klien',
+    description:
+      'Mengembalikan client + bulan + tahun terbaru berdasarkan kontrak aktif untuk pre-fill filter.',
+  })
+  @ApiResponse({ status: 200, description: 'Berhasil' })
+  defaultRecap() {
+    return this.contractService.defaultRecapSelection();
+  }
+
+  @Get('recap/clients')
+  @Permission('client-recap', 'read')
+  @ApiOperation({
+    summary: 'Daftar client untuk filter rekap klien',
+    description: 'Menampilkan client aktif/non-soft-delete untuk kebutuhan filter rekap klien.',
+  })
+  @ApiResponse({ status: 200, description: 'Berhasil' })
+  recapClients() {
+    return this.contractService.recapClientOptions();
+  }
+
+  @Get('recap')
+  @Permission('client-recap', 'read')
+  @ApiOperation({
+    summary: 'Rekap klien per bulan-tahun',
+    description:
+      'Menampilkan daftar antar jemput berdasarkan jadwal (scheduled_date) untuk client + bulan + tahun yang dipilih, beserta ringkasan pemasukan, pengeluaran, dan selisih.',
+  })
+  @ApiQuery({ name: 'client_id', required: true, example: '1', description: 'ID client' })
+  @ApiQuery({ name: 'month', required: true, example: '4', description: 'Bulan (1-12)' })
+  @ApiQuery({ name: 'year', required: true, example: '2026', description: 'Tahun (YYYY)' })
+  @ApiResponse({ status: 200, description: 'Berhasil' })
+  recap(@Query() query: QueryContractRecapDto) {
+    return this.contractService.recapByClientMonthYear(query.client_id, Number(query.month), Number(query.year));
   }
 
   // ──────────────────────────────────────────
@@ -122,12 +160,14 @@ export class ContractController {
           id: '1',
           contracts_uuid: '550e8400-e29b-41d4-a716-446655440000',
           contract_number: 'KTR-2024-001',
+          client_id: '1',
+          contract_month: 4,
+          contract_year: 2026,
           contact_person: 'Budi Santoso',
           phone_number: '08123456789',
           email: 'budi@perusahaan.com',
           address: 'Jl. Sudirman No. 10, Jakarta',
-          start_date: '2024-01-01T00:00:00.000Z',
-          end_date: '2024-12-31T23:59:59.999Z',
+          contract_value: '3500000.00',
           status: 'ACTIVE',
           created_by: '1',
           updated_by: null,
@@ -174,12 +214,14 @@ export class ContractController {
           id: '2',
           contracts_uuid: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
           contract_number: 'KTR-2024-002',
+          client_id: '2',
+          contract_month: 3,
+          contract_year: 2026,
           contact_person: 'Siti Rahayu',
           phone_number: '08987654321',
           email: 'siti@klien.com',
           address: 'Jl. Gatot Subroto No. 5, Jakarta',
-          start_date: '2024-03-01T00:00:00.000Z',
-          end_date: '2025-02-28T23:59:59.999Z',
+          contract_value: '12000000.00',
           status: 'ACTIVE',
           created_at: '2024-03-01T09:00:00.000Z',
           updated_at: '2024-03-01T09:00:00.000Z',
@@ -234,12 +276,14 @@ export class ContractController {
           id: '1',
           contracts_uuid: '550e8400-e29b-41d4-a716-446655440000',
           contract_number: 'KTR-2024-001-REV',
+          client_id: '1',
+          contract_month: 4,
+          contract_year: 2026,
           contact_person: 'Budi Santoso',
           phone_number: '08123456789',
           email: 'budi.updated@perusahaan.com',
           address: 'Jl. Sudirman No. 10, Jakarta',
-          start_date: '2024-01-01T00:00:00.000Z',
-          end_date: '2025-12-31T23:59:59.999Z',
+          contract_value: '4000000.00',
           status: 'ACTIVE',
           updated_by: '1',
           updated_at: '2024-06-01T10:00:00.000Z',
@@ -283,3 +327,5 @@ export class ContractController {
     return this.contractService.remove(id, user);
   }
 }
+
+

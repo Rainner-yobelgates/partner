@@ -1,21 +1,34 @@
 <script setup lang="ts">
 import { ApiError } from '@/services/http'
-import { contractMasterService, type ContractItem, type MasterStatus } from '@/services/masters'
+import {
+  clientMasterService,
+  contractMasterService,
+  type ClientItem,
+  type ContractItem,
+  type MasterStatus,
+} from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
 import { optionalPhoneRule, sanitizePhoneNumber } from '@/utils/phone'
+import {
+  blockKeysNonDecimalMoney,
+  parseOptionalApiDecimalMoney,
+  sanitizeDecimalMoneyInput,
+} from '@/utils/money-input'
 
 type ContractForm = {
   contract_number: string
+  client_id: string
+  contract_period: string
   contact_person: string
   phone_number: string
   email: string
   address: string
-  start_date: string
-  end_date: string
+  contract_value: string
   status: MasterStatus
 }
 
 const rows = ref<ContractItem[]>([])
+const clients = ref<ClientItem[]>([])
 const total = ref(0)
 const page = ref(1)
 const perPage = ref(10)
@@ -38,12 +51,13 @@ const canDetail = computed(() => authStore.hasPermission('contract:detail'))
 
 const form = ref<ContractForm>({
   contract_number: '',
+  client_id: '',
+  contract_period: '',
   contact_person: '',
   phone_number: '',
   email: '',
   address: '',
-  start_date: '',
-  end_date: '',
+  contract_value: '',
   status: 'ACTIVE',
 })
 
@@ -52,12 +66,72 @@ const snackbar = ref({ show: false, color: 'success', text: '' })
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / perPage.value)))
 const isEditMode = computed(() => Boolean(editedItem.value))
 const phoneRules = [optionalPhoneRule]
-const showToast = (text: string, color: 'success' | 'error' = 'success') => { snackbar.value = { show: true, color, text } }
-const getErrorMessage = (error: unknown) => error instanceof ApiError ? error.message : 'Terjadi kesalahan. Silakan coba lagi.'
+
+const clientOptions = computed(() => clients.value.map(client => ({
+  title: client.code ? `${client.name} (${client.code})` : client.name,
+  value: client.id,
+})))
+
+const showToast = (text: string, color: 'success' | 'error' = 'success') => {
+  snackbar.value = { show: true, color, text }
+}
+const getErrorMessage = (error: unknown) => {
+  if (!(error instanceof ApiError))
+    return 'Terjadi kesalahan. Silakan coba lagi.'
+  const detail = typeof error.payload?.error === 'string' ? error.payload.error.trim() : ''
+  if (detail && error.message === 'Operation failed')
+    return `${error.message}: ${detail}`
+  return error.message
+}
 const formatDate = (value?: string | null) => value ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(value)) : '-'
 
-const toIsoDate = (value: string) => value ? new Date(value).toISOString() : undefined
-const fromIsoToInputDate = (value?: string | null) => value ? new Date(value).toISOString().slice(0, 10) : ''
+/** Tampilan rupiah dari string DECIMAL API (mis. "3500000.00"). */
+const formatMoneyId = (value?: string | null) => {
+  if (value == null || value === '')
+    return '-'
+  const n = Number(value)
+  if (!Number.isFinite(n))
+    return value
+  return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+}
+
+const onContractValueInput = (v: string) => {
+  form.value.contract_value = sanitizeDecimalMoneyInput(String(v ?? ''))
+}
+
+const formatPeriod = (month?: number, year?: number) => {
+  if (!month || !year)
+    return '-'
+
+  return new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1))
+}
+
+const fromPeriodToInputMonth = (month?: number, year?: number) => (month && year) ? `${year}-${month.toString().padStart(2, '0')}` : ''
+const getPeriodPayload = (period: string) => {
+  const [yearRaw, monthRaw] = period.split('-')
+  const year = Number(yearRaw)
+  const month = Number(monthRaw)
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12)
+    return null
+
+  return { year, month }
+}
+
+const fetchClients = async () => {
+  try {
+    const response = await clientMasterService.list({
+      page: 1,
+      perPage: 200,
+      sortBy: 'created_at',
+      sortOrder: 'desc',
+    })
+    clients.value = response.data.filter(item => item.status === 'ACTIVE')
+  }
+  catch {
+    clients.value = []
+  }
+}
 
 const fetchContracts = async () => {
   isLoading.value = true
@@ -76,44 +150,80 @@ const fetchContracts = async () => {
     console.error('[pages/contracts.vue]', error)
     showToast(getErrorMessage(error), 'error')
   }
-  finally { isLoading.value = false }
+  finally {
+    isLoading.value = false
+  }
 }
 
 const resetForm = () => {
   editedItem.value = null
   form.value = {
-    contract_number: '', contact_person: '', phone_number: '', email: '', address: '', start_date: '', end_date: '', status: 'ACTIVE',
+    contract_number: '',
+    client_id: '',
+    contract_period: '',
+    contact_person: '',
+    phone_number: '',
+    email: '',
+    address: '',
+    contract_value: '',
+    status: 'ACTIVE',
   }
 }
 
-const openCreateDialog = () => { resetForm(); isFormDialogOpen.value = true }
+const openCreateDialog = () => {
+  resetForm()
+  isFormDialogOpen.value = true
+}
+
 const openEditDialog = (item: ContractItem) => {
   editedItem.value = item
   form.value = {
     contract_number: item.contract_number || '',
+    client_id: item.client_id,
+    contract_period: fromPeriodToInputMonth(item.contract_month, item.contract_year),
     contact_person: item.contact_person || '',
     phone_number: sanitizePhoneNumber(item.phone_number || ''),
     email: item.email || '',
     address: item.address || '',
-    start_date: fromIsoToInputDate(item.start_date),
-    end_date: fromIsoToInputDate(item.end_date),
+    contract_value: item.contract_value ?? '',
     status: item.status || 'ACTIVE',
   }
   isFormDialogOpen.value = true
 }
 
 const submitForm = async () => {
-  if (isSubmitting.value) return
+  if (isSubmitting.value)
+    return
+
+  if (!form.value.client_id) {
+    showToast('Client wajib dipilih', 'error')
+    return
+  }
+
+  const periodPayload = getPeriodPayload(form.value.contract_period)
+  if (!periodPayload) {
+    showToast('Periode kontrak wajib diisi', 'error')
+    return
+  }
+
+  const contractValuePayload = parseOptionalApiDecimalMoney(form.value.contract_value)
+  if (contractValuePayload === '__invalid__') {
+    showToast('Nilai kontrak tidak valid. Contoh: 3500000 atau 3500000.50 (maks. 13 digit bulat, 2 desimal).', 'error')
+    return
+  }
+
   isSubmitting.value = true
 
   const payload = {
     contract_number: form.value.contract_number.trim() || undefined,
+    client_id: form.value.client_id,
+    contract_month: periodPayload.month,
+    contract_year: periodPayload.year,
     contact_person: form.value.contact_person.trim() || undefined,
     phone_number: sanitizePhoneNumber(form.value.phone_number) || undefined,
     email: form.value.email.trim() || undefined,
     address: form.value.address.trim() || undefined,
-    start_date: toIsoDate(form.value.start_date),
-    end_date: toIsoDate(form.value.end_date),
+    ...(contractValuePayload !== undefined && { contract_value: contractValuePayload }),
     status: form.value.status,
   }
 
@@ -121,7 +231,8 @@ const submitForm = async () => {
     if (editedItem.value) {
       await contractMasterService.update(editedItem.value.id, payload)
       showToast('Kontrak berhasil diperbarui')
-    } else {
+    }
+    else {
       await contractMasterService.create(payload)
       showToast('Kontrak berhasil dibuat')
       page.value = 1
@@ -133,35 +244,57 @@ const submitForm = async () => {
     console.error('[pages/contracts.vue]', error)
     showToast(getErrorMessage(error), 'error')
   }
-  finally { isSubmitting.value = false }
+  finally {
+    isSubmitting.value = false
+  }
 }
 
 const onPhoneInput = () => {
   form.value.phone_number = sanitizePhoneNumber(form.value.phone_number)
 }
 
-const openDeleteDialog = (item: ContractItem) => { editedItem.value = item; isDeleteDialogOpen.value = true }
-const openDetailDialog = (item: ContractItem) => { detailItem.value = item; isDetailDialogOpen.value = true }
+const openDeleteDialog = (item: ContractItem) => {
+  editedItem.value = item
+  isDeleteDialogOpen.value = true
+}
+
+const openDetailDialog = (item: ContractItem) => {
+  detailItem.value = item
+  isDetailDialogOpen.value = true
+}
+
 const confirmDelete = async () => {
-  if (!editedItem.value || isSubmitting.value) return
+  if (!editedItem.value || isSubmitting.value)
+    return
+
   isSubmitting.value = true
   try {
     await contractMasterService.remove(editedItem.value.id)
     isDeleteDialogOpen.value = false
     showToast('Kontrak berhasil dihapus')
-    if (rows.value.length === 1 && page.value > 1) page.value -= 1
+    if (rows.value.length === 1 && page.value > 1)
+      page.value -= 1
     await fetchContracts()
   }
   catch (error) {
     console.error('[pages/contracts.vue]', error)
     showToast(getErrorMessage(error), 'error')
   }
-  finally { isSubmitting.value = false }
+  finally {
+    isSubmitting.value = false
+  }
 }
 
-const onSearch = async () => { page.value = 1; await fetchContracts() }
+const onSearch = async () => {
+  page.value = 1
+  await fetchContracts()
+}
+
 watch([page, perPage, sortBy, sortOrder], fetchContracts)
-onMounted(fetchContracts)
+onMounted(async () => {
+  await fetchClients()
+  await fetchContracts()
+})
 </script>
 
 <template>
@@ -176,11 +309,11 @@ onMounted(fetchContracts)
     </VCardItem>
     <VCardText>
       <VRow>
-        <VCol cols="12" md="5"><VTextField v-model="search" label="Cari kontrak" placeholder="Nomor / PIC / email / telepon" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" /></VCol>
+        <VCol cols="12" md="5"><VTextField v-model="search" label="Cari kontrak" placeholder="Nomor / client / PIC / email / telepon" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" /></VCol>
         <VCol cols="12" md="2"><VBtn block class="mt-md-1" color="secondary" @click="onSearch">Cari</VBtn></VCol>
-        <VCol cols="6" md="2"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title:'Dibuat', value:'created_at'},{ title:'No Kontrak', value:'contract_number'},{ title:'Diubah', value:'updated_at'}]" item-title="title" item-value="value" /></VCol>
-        <VCol cols="6" md="1"><VSelect v-model="sortOrder" label="Urutan" :items="[{ title:'DESC', value:'desc'},{ title:'ASC', value:'asc'}]" item-title="title" item-value="value" /></VCol>
-        <VCol cols="12" md="2"><VSelect v-model="perPage" label="Per halaman" :items="[10,20,50]" /></VCol>
+        <VCol cols="6" md="2"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title: 'Dibuat', value: 'created_at' }, { title: 'No Kontrak', value: 'contract_number' }, { title: 'Diubah', value: 'updated_at' }]" item-title="title" item-value="value" /></VCol>
+        <VCol cols="6" md="1"><VSelect v-model="sortOrder" label="Urutan" :items="[{ title: 'DESC', value: 'desc' }, { title: 'ASC', value: 'asc' }]" item-title="title" item-value="value" /></VCol>
+        <VCol cols="12" md="2"><VSelect v-model="perPage" label="Per halaman" :items="[10, 20, 50]" /></VCol>
       </VRow>
     </VCardText>
     <VDivider />
@@ -188,15 +321,16 @@ onMounted(fetchContracts)
       <VProgressLinear v-if="isLoading" indeterminate color="primary" class="mb-4" />
       <VTable density="comfortable">
         <thead>
-          <tr><th>No Kontrak</th><th>PIC</th><th>Email</th><th>Periode</th><th>Status</th><th>Diubah Pada</th><th class="text-end">Aksi</th></tr>
+          <tr><th>No Kontrak</th><th>Client</th><th>Periode</th><th>Nilai Kontrak</th><th>PIC</th><th>Status</th><th>Diubah Pada</th><th class="text-end">Aksi</th></tr>
         </thead>
         <tbody>
-          <tr v-if="!isLoading && rows.length===0"><td colspan="7" class="text-center text-medium-emphasis py-6">Data kontrak belum ada.</td></tr>
+          <tr v-if="!isLoading && rows.length === 0"><td colspan="8" class="text-center text-medium-emphasis py-6">Data kontrak belum ada.</td></tr>
           <tr v-for="item in rows" :key="item.id">
             <td class="font-weight-medium">{{ item.contract_number || '-' }}</td>
+            <td>{{ item.client?.name || '-' }}</td>
+            <td>{{ formatPeriod(item.contract_month, item.contract_year) }}</td>
+            <td class="text-end">{{ formatMoneyId(item.contract_value) }}</td>
             <td>{{ item.contact_person || '-' }}</td>
-            <td>{{ item.email || '-' }}</td>
-            <td>{{ formatDate(item.start_date) }} - {{ formatDate(item.end_date) }}</td>
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
             <td>{{ formatDate(item.updated_at) }}</td>
             <td class="text-end">
@@ -211,13 +345,15 @@ onMounted(fetchContracts)
     </VCardText>
   </VCard>
 
-  <VDialog v-model="isFormDialogOpen" max-width="800">
+  <VDialog v-model="isFormDialogOpen" max-width="900">
     <VCard>
       <VCardItem :title="isEditMode ? 'Ubah Kontrak' : 'Tambah Kontrak'" />
       <VCardText>
         <VForm @submit.prevent="submitForm">
           <VRow>
-            <VCol cols="12" md="6"><VTextField v-model="form.contract_number" label="Nomor Kontrak (Otomatis)" readonly placeholder="Dibuat otomatis" /></VCol>
+            <VCol cols="12" md="4"><VTextField v-model="form.contract_number" label="Nomor Kontrak (Otomatis)" disabled readonly placeholder="Dibuat otomatis" /></VCol>
+            <VCol cols="12" md="4"><VSelect v-model="form.client_id" label="Client" :items="clientOptions" item-title="title" item-value="value" /></VCol>
+            <VCol cols="12" md="4"><VTextField v-model="form.contract_period" label="Periode Kontrak" type="month" /></VCol>
             <VCol cols="12" md="6"><VTextField v-model="form.contact_person" label="PIC" /></VCol>
             <VCol cols="12" md="6">
               <VTextField
@@ -231,19 +367,30 @@ onMounted(fetchContracts)
               />
             </VCol>
             <VCol cols="12" md="6"><VTextField v-model="form.email" label="Email" type="email" /></VCol>
-            <VCol cols="12" md="6"><VTextField v-model="form.start_date" label="Tanggal Mulai" type="date" /></VCol>
-            <VCol cols="12" md="6"><VTextField v-model="form.end_date" label="Tanggal Selesai" type="date" /></VCol>
-            <VCol cols="12" md="6"><VSelect v-model="form.status" label="Status" :items="['ACTIVE','INACTIVE']" /></VCol>
+            <VCol cols="12" md="6"><VSelect v-model="form.status" label="Status" :items="['ACTIVE', 'INACTIVE']" /></VCol>
+            <VCol cols="12" md="6">
+              <VTextField
+                :model-value="form.contract_value"
+                label="Nilai kontrak (Rp)"
+                placeholder="contoh: 3500000 atau 3500000.50"
+                persistent-hint
+                hint="Hanya angka; titik untuk desimal (maks. 13 digit bulat, 2 desimal)."
+                inputmode="decimal"
+                autocomplete="off"
+                @update:model-value="onContractValueInput"
+                @keydown="blockKeysNonDecimalMoney"
+              />
+            </VCol>
             <VCol cols="12"><VTextarea v-model="form.address" label="Alamat" rows="2" /></VCol>
           </VRow>
         </VForm>
       </VCardText>
-      <VCardActions class="justify-end"><VBtn variant="text" @click="isFormDialogOpen=false">Batal</VBtn><VBtn color="primary" :loading="isSubmitting" :disabled="isSubmitting" @click="submitForm">Simpan</VBtn></VCardActions>
+      <VCardActions class="justify-end"><VBtn variant="text" @click="isFormDialogOpen = false">Batal</VBtn><VBtn color="primary" :loading="isSubmitting" :disabled="isSubmitting" @click="submitForm">Simpan</VBtn></VCardActions>
     </VCard>
   </VDialog>
 
   <VDialog v-model="isDeleteDialogOpen" max-width="420">
-    <VCard><VCardItem title="Hapus Kontrak" /><VCardText>Yakin hapus kontrak <strong>{{ editedItem?.contract_number || '-' }}</strong>?</VCardText><VCardActions class="justify-end"><VBtn variant="text" @click="isDeleteDialogOpen=false">Batal</VBtn><VBtn color="error" :loading="isSubmitting" :disabled="isSubmitting" @click="confirmDelete">Hapus</VBtn></VCardActions></VCard>
+    <VCard><VCardItem title="Hapus Kontrak" /><VCardText>Yakin hapus kontrak <strong>{{ editedItem?.contract_number || '-' }}</strong>?</VCardText><VCardActions class="justify-end"><VBtn variant="text" @click="isDeleteDialogOpen = false">Batal</VBtn><VBtn color="error" :loading="isSubmitting" :disabled="isSubmitting" @click="confirmDelete">Hapus</VBtn></VCardActions></VCard>
   </VDialog>
 
   <VDialog v-model="isDetailDialogOpen" max-width="620">
@@ -253,12 +400,13 @@ onMounted(fetchContracts)
         <VTable density="compact">
           <tbody>
             <tr><td>Nomor Kontrak</td><td class="text-end font-weight-medium">{{ detailItem?.contract_number || '-' }}</td></tr>
+            <tr><td>Client</td><td class="text-end">{{ detailItem?.client?.name || '-' }}</td></tr>
+            <tr><td>Periode</td><td class="text-end">{{ formatPeriod(detailItem?.contract_month, detailItem?.contract_year) }}</td></tr>
             <tr><td>PIC</td><td class="text-end">{{ detailItem?.contact_person || '-' }}</td></tr>
             <tr><td>Telepon</td><td class="text-end">{{ detailItem?.phone_number || '-' }}</td></tr>
             <tr><td>Email</td><td class="text-end">{{ detailItem?.email || '-' }}</td></tr>
             <tr><td>Alamat</td><td class="text-end">{{ detailItem?.address || '-' }}</td></tr>
-            <tr><td>Mulai</td><td class="text-end">{{ detailItem ? formatDate(detailItem.start_date) : '-' }}</td></tr>
-            <tr><td>Selesai</td><td class="text-end">{{ detailItem ? formatDate(detailItem.end_date) : '-' }}</td></tr>
+            <tr><td>Nilai kontrak</td><td class="text-end">{{ detailItem ? formatMoneyId(detailItem.contract_value) : '-' }}</td></tr>
             <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
             <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
             <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
@@ -266,12 +414,10 @@ onMounted(fetchContracts)
         </VTable>
       </VCardText>
       <VCardActions class="justify-end">
-        <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
+        <VBtn variant="text" @click="isDetailDialogOpen = false">Tutup</VBtn>
       </VCardActions>
     </VCard>
   </VDialog>
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
-
-

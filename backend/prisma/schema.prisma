@@ -94,9 +94,9 @@ model User {
   updated_contracts    Contract[] @relation("contract_updated_by")
   deleted_contracts    Contract[] @relation("contract_deleted_by")
 
-  created_contract_invoices ContractInvoice[] @relation("contract_invoice_created_by")
-  updated_contract_invoices ContractInvoice[] @relation("contract_invoice_updated_by")
-  deleted_contract_invoices ContractInvoice[] @relation("contract_invoice_deleted_by")
+  created_clients      Client[] @relation("client_created_by")
+  updated_clients      Client[] @relation("client_updated_by")
+  deleted_clients      Client[] @relation("client_deleted_by")
 
   created_shuttles     Shuttle[] @relation("shuttle_created_by")
   updated_shuttles     Shuttle[] @relation("shuttle_updated_by")
@@ -262,7 +262,7 @@ model VehicleService {
   vehicle_id            BigInt?
   service_date          DateTime?
   service_type          ServiceType?
-  cost                  Decimal?
+  cost                  Decimal? @db.Decimal(15, 2)
   description           String?
   status                Status?
 
@@ -329,17 +329,47 @@ model Route {
   deletedBy User? @relation("route_deleted_by", fields: [deleted_by], references: [id])
 }
 
+// ================= CLIENT =================
+model Client {
+  id           BigInt @id @default(autoincrement())
+  clients_uuid String @unique @default(uuid())
+  name         String @unique
+  code         String? @unique
+  contact_person String?
+  phone_number String?
+  email        String?
+  address      String?
+  status       Status?
+
+  created_by BigInt?
+  updated_by BigInt?
+  deleted_by BigInt?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  contracts Contract[]
+  shuttles  Shuttle[]
+
+  createdBy User? @relation("client_created_by", fields: [created_by], references: [id])
+  updatedBy User? @relation("client_updated_by", fields: [updated_by], references: [id])
+  deletedBy User? @relation("client_deleted_by", fields: [deleted_by], references: [id])
+}
+
 // ================= CONTRACT =================
 model Contract {
   id              BigInt @id @default(autoincrement())
   contracts_uuid  String @unique @default(uuid())
   contract_number String?
+  client_id       BigInt
+  contract_month  Int
+  contract_year   Int
   contact_person  String?
   phone_number    String?
   email           String?
   address         String?
-  start_date      DateTime?
-  end_date        DateTime?
+  contract_value  Decimal? @db.Decimal(15, 2)
   status          Status?
 
   created_by BigInt?
@@ -350,54 +380,28 @@ model Contract {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  shuttles         Shuttle[]
-  contractInvoices ContractInvoice[]
+  client   Client @relation(fields: [client_id], references: [id])
 
   createdBy User? @relation("contract_created_by", fields: [created_by], references: [id])
   updatedBy User? @relation("contract_updated_by", fields: [updated_by], references: [id])
   deletedBy User? @relation("contract_deleted_by", fields: [deleted_by], references: [id])
-}
 
-// ================= CONTRACT INVOICE =================
-model ContractInvoice {
-  id                     BigInt @id @default(autoincrement())
-  contract_invoices_uuid String @unique @default(uuid())
-  contract_id            BigInt
-  period_month           Int?
-  period_year            Int?
-  gross_amount           Decimal?
-  tax_amount             Decimal?
-  net_amount             Decimal?
-  status                 String?
-
-  created_by BigInt?
-  updated_by BigInt?
-  deleted_by BigInt?
-  deleted_at DateTime?
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  contract Contract @relation(fields: [contract_id], references: [id])
-
-  createdBy User? @relation("contract_invoice_created_by", fields: [created_by], references: [id])
-  updatedBy User? @relation("contract_invoice_updated_by", fields: [updated_by], references: [id])
-  deletedBy User? @relation("contract_invoice_deleted_by", fields: [deleted_by], references: [id])
+  @@index([client_id, contract_year, contract_month])
 }
 
 // ================= SHUTTLE =================
 model Shuttle {
   id             BigInt @id @default(autoincrement())
   shuttles_uuid  String @unique @default(uuid())
-  contract_id    BigInt?
+  client_id      BigInt
   vehicle_id     BigInt?
   route_id       BigInt?
 
-  crew_incentive Decimal?
+  crew_incentive Decimal? @db.Decimal(15, 2)
   scheduled_date DateTime?
-  fuel           Decimal?
-  toll_fee       Decimal?
-  others        Decimal?
+  fuel           Decimal? @db.Decimal(15, 2)
+  toll_fee       Decimal? @db.Decimal(15, 2)
+  others        Decimal? @db.Decimal(15, 2)
   status         Status?
 
   created_by BigInt?
@@ -408,13 +412,15 @@ model Shuttle {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  contract Contract? @relation(fields: [contract_id], references: [id])
+  client   Client    @relation(fields: [client_id], references: [id])
   vehicle  Vehicle?  @relation(fields: [vehicle_id], references: [id])
   route    Route?    @relation(fields: [route_id], references: [id])
 
   createdBy User? @relation("shuttle_created_by", fields: [created_by], references: [id])
   updatedBy User? @relation("shuttle_updated_by", fields: [updated_by], references: [id])
   deletedBy User? @relation("shuttle_deleted_by", fields: [deleted_by], references: [id])
+
+  @@index([client_id])
 }
 
 // ================= ORDER =================
@@ -434,7 +440,7 @@ model Order {
   dropoff_location String?
   destination      String?
   total_vehicles   Int?
-  total_amount     Decimal?
+  total_amount     Decimal? @db.Decimal(15, 2)
   status           OrderStatus?
   notes            String?
 
@@ -492,10 +498,11 @@ model TripSheet {
   driver_id        BigInt?
   assistant_id     BigInt?
   destination      String?
-  fuel_cost        Decimal?
-  toll_fee         Decimal?
-  parking_fee      Decimal?
-  stay_cost        Decimal?
+  fuel_cost        Decimal? @db.Decimal(15, 2)
+  toll_fee         Decimal? @db.Decimal(15, 2)
+  parking_fee      Decimal? @db.Decimal(15, 2)
+  stay_cost        Decimal? @db.Decimal(15, 2)
+  others           Decimal? @db.Decimal(15, 2)
   expense_notes    String?
   attachment       String?
   status           Status?
