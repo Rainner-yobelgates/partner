@@ -9,13 +9,17 @@ import {
   type VehicleServiceItem,
 } from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
-import { blockKeysInvalidNumberMoneyInput } from '@/utils/money-input'
+import {
+  blockKeysNonDecimalMoney,
+  onPasteSanitizedDecimalMoney,
+  parseOptionalApiDecimalMoney,
+} from '@/utils/money-input'
 
 type VehicleServiceForm = {
   vehicle_id: string
   service_date: string
   service_type: ServiceType
-  cost: number | null
+  cost: string
   description: string
   status: MasterStatus
 }
@@ -46,7 +50,7 @@ const form = ref<VehicleServiceForm>({
   vehicle_id: '',
   service_date: '',
   service_type: 'MAINTENANCE',
-  cost: null,
+  cost: '',
   description: '',
   status: 'ACTIVE',
 })
@@ -95,7 +99,7 @@ const fetchVehicleServices = async () => {
 
 const resetForm = () => {
   editedItem.value = null
-  form.value = { vehicle_id: '', service_date: '', service_type: 'MAINTENANCE', cost: null, description: '', status: 'ACTIVE' }
+  form.value = { vehicle_id: '', service_date: '', service_type: 'MAINTENANCE', cost: '', description: '', status: 'ACTIVE' }
 }
 
 const openCreateDialog = () => { resetForm(); isFormDialogOpen.value = true }
@@ -105,22 +109,35 @@ const openEditDialog = (item: VehicleServiceItem) => {
     vehicle_id: item.vehicle_id || '',
     service_date: fromIsoToInputDate(item.service_date),
     service_type: item.service_type || 'MAINTENANCE',
-    cost: item.cost ?? null,
+    cost: item.cost ?? '',
     description: item.description || '',
     status: item.status || 'ACTIVE',
   }
   isFormDialogOpen.value = true
 }
 
+const onCostPaste = (event: ClipboardEvent) => {
+  onPasteSanitizedDecimalMoney(event, (sanitized) => {
+    form.value.cost = sanitized
+  })
+}
+
 const submitForm = async () => {
   if (isSubmitting.value) return
   isSubmitting.value = true
+
+  const parsedCost = parseOptionalApiDecimalMoney(form.value.cost)
+  if (parsedCost === '__invalid__') {
+    showToast('Format biaya tidak valid. Gunakan format desimal non-negatif (maks 13 digit bulat, 2 digit desimal).', 'error')
+    isSubmitting.value = false
+    return
+  }
 
   const payload = {
     vehicle_id: form.value.vehicle_id || undefined,
     service_date: toIsoDate(form.value.service_date),
     service_type: form.value.service_type,
-    cost: form.value.cost ?? undefined,
+    cost: parsedCost,
     description: form.value.description.trim() || undefined,
     status: form.value.status,
   }
@@ -227,14 +244,19 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
             <VCol cols="12" md="6"><VSelect v-model="form.status" label="Status" :items="['ACTIVE','INACTIVE']" /></VCol>
             <VCol cols="12" md="6">
               <VTextField
-                v-model.number="form.cost"
+                v-model="form.cost"
                 label="Biaya"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                @keydown="blockKeysInvalidNumberMoneyInput"
+                :rules="[
+                  v => {
+                    const parsed = parseOptionalApiDecimalMoney(String(v ?? ''))
+                    return parsed !== '__invalid__' || 'Format biaya tidak valid (contoh: 350000.00)'
+                  },
+                ]"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onCostPaste"
               />
             </VCol>
             <VCol cols="12"><VTextarea v-model="form.description" label="Deskripsi" rows="2" /></VCol>
@@ -251,18 +273,72 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
     <VCard>
       <VCardItem title="Detail Pemeliharaan Kendaraan" />
       <VCardText>
-        <VTable density="compact">
-          <tbody>
-            <tr><td>Kendaraan</td><td class="text-end font-weight-medium">{{ detailItem?.vehicle?.plate_number || '-' }}</td></tr>
-            <tr><td>Tanggal Servis</td><td class="text-end">{{ detailItem ? formatDate(detailItem.service_date) : '-' }}</td></tr>
-            <tr><td>Tipe</td><td class="text-end">{{ detailItem?.service_type || '-' }}</td></tr>
-            <tr><td>Biaya</td><td class="text-end">{{ detailItem?.cost ?? '-' }}</td></tr>
-            <tr><td>Deskripsi</td><td class="text-end">{{ detailItem?.description || '-' }}</td></tr>
-            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
-            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
-            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
-          </tbody>
-        </VTable>
+        <VRow>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Kendaraan</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailItem?.vehicle?.plate_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Tanggal Servis</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.service_date) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Tipe</div>
+                <div class="text-body-1 text-break">{{ detailItem?.service_type || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Biaya</div>
+                <div class="text-body-1 text-break">{{ detailItem?.cost ?? '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12">
+            <VCard variant="tonal">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Deskripsi</div>
+                <div class="text-body-1 text-break">{{ detailItem?.description || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Status</div>
+                <div class="text-body-1 text-break">{{ detailItem?.status || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Dibuat</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Diubah</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+        </VRow>
       </VCardText>
       <VCardActions class="justify-end">
         <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
@@ -272,5 +348,3 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
-
-

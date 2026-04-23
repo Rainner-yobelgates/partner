@@ -49,7 +49,7 @@ export class CreateTripSheetDto {
   @IsString()
   attachment?: string;
 
-  @ApiPropertyOptional({ description: 'Status trip sheet', enum: Status })
+  @ApiPropertyOptional({ description: 'Status surat jalan', enum: Status })
   @IsOptional()
   @IsEnum(Status)
   status?: Status;
@@ -93,7 +93,7 @@ export class UpdateTripSheetPublicDto {
   @IsString()
   attachment?: string;
 
-  @ApiPropertyOptional({ description: 'Status trip sheet', enum: Status })
+  @ApiPropertyOptional({ description: 'Status surat jalan', enum: Status })
   @IsOptional()
   @IsEnum(Status)
   status?: Status;

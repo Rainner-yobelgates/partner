@@ -101,7 +101,7 @@ export type FacilityItem = {
   id: string
   facilities_uuid: string
   name: string
-  cost: number | null
+  cost: string | null
   description?: string | null
   status?: MasterStatus | null
   created_at: string
@@ -110,7 +110,7 @@ export type FacilityItem = {
 
 export type FacilityPayload = {
   name: string
-  cost: number
+  cost: string
   description?: string
   status?: MasterStatus
 }
@@ -250,7 +250,7 @@ export type VehicleServiceItem = {
   } | null
   service_date?: string | null
   service_type?: ServiceType | null
-  cost?: number | null
+  cost?: string | null
   description?: string | null
   status?: MasterStatus | null
   created_at: string
@@ -261,7 +261,7 @@ export type VehicleServicePayload = {
   vehicle_id?: string
   service_date?: string
   service_type?: ServiceType
-  cost?: number
+  cost?: string
   description?: string
   status?: MasterStatus
 }
@@ -375,4 +375,3 @@ export const contractMasterService = createMasterCrudService<ContractItem, Contr
 export const shuttleMasterService = createMasterCrudService<ShuttleItem, ShuttlePayload, ShuttlePayload>('shuttles')
 export const facilityMasterService = createMasterCrudService<FacilityItem, FacilityPayload, FacilityPayload>('facilities')
 export const vehicleServiceMasterService = createMasterCrudService<VehicleServiceItem, VehicleServicePayload, VehicleServicePayload>('vehicle-services')
-

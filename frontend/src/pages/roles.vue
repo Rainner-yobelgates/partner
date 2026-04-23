@@ -474,30 +474,48 @@ onMounted(fetchRoles)
     <VCard>
       <VCardItem title="Detail Peran" />
       <VCardText>
-        <VTable density="compact">
-          <tbody>
-            <tr>
-              <td>Nama</td>
-              <td class="text-end font-weight-medium">{{ detailRole?.name || '-' }}</td>
-            </tr>
-            <tr>
-              <td>Deskripsi</td>
-              <td class="text-end">{{ detailRole?.description || '-' }}</td>
-            </tr>
-            <tr>
-              <td>Status</td>
-              <td class="text-end">{{ detailRole?.status || '-' }}</td>
-            </tr>
-            <tr>
-              <td>Dibuat</td>
-              <td class="text-end">{{ detailRole ? formatDate(detailRole.created_at) : '-' }}</td>
-            </tr>
-            <tr>
-              <td>Diubah</td>
-              <td class="text-end">{{ detailRole ? formatDate(detailRole.updated_at) : '-' }}</td>
-            </tr>
-          </tbody>
-        </VTable>
+        <VRow>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Nama</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailRole?.name || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Status</div>
+                <div class="text-body-1 text-break">{{ detailRole?.status || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12">
+            <VCard variant="tonal">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Deskripsi</div>
+                <div class="text-body-1 text-break">{{ detailRole?.description || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Dibuat</div>
+                <div class="text-body-1 text-break">{{ detailRole ? formatDate(detailRole.created_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Diubah</div>
+                <div class="text-body-1 text-break">{{ detailRole ? formatDate(detailRole.updated_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+        </VRow>
       </VCardText>
       <VCardActions class="justify-end">
         <VBtn variant="text" @click="isDetailDialogOpen = false">Tutup</VBtn>
@@ -513,6 +531,5 @@ onMounted(fetchRoles)
     {{ snackbar.text }}
   </VSnackbar>
 </template>
-
 
 

@@ -423,19 +423,80 @@ onMounted(async () => {
     <VCard>
       <VCardItem title="Detail Pengemudi" />
       <VCardText>
-        <VTable density="compact">
-          <tbody>
-            <tr><td>Nama</td><td class="text-end font-weight-medium">{{ detailItem?.name || '-' }}</td></tr>
-            <tr><td>Telepon</td><td class="text-end">{{ detailItem?.phone_number || '-' }}</td></tr>
-            <tr><td>Kontak Darurat</td><td class="text-end">{{ detailItem?.emergency_contact || '-' }}</td></tr>
-            <tr><td>Alamat</td><td class="text-end">{{ detailItem?.address || '-' }}</td></tr>
-            <tr><td>Tipe</td><td class="text-end">{{ detailItem?.type || '-' }}</td></tr>
-            <tr><td>Kendaraan</td><td class="text-end">{{ detailItem?.vehicle?.plate_number || '-' }}</td></tr>
-            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
-            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
-            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
-          </tbody>
-        </VTable>
+        <VRow>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Nama</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailItem?.name || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Telepon</div>
+                <div class="text-body-1 text-break">{{ detailItem?.phone_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Kontak Darurat</div>
+                <div class="text-body-1 text-break">{{ detailItem?.emergency_contact || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Tipe</div>
+                <div class="text-body-1 text-break">{{ detailItem?.type || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Kendaraan</div>
+                <div class="text-body-1 text-break">{{ detailItem?.vehicle?.plate_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Status</div>
+                <div class="text-body-1 text-break">{{ detailItem?.status || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12">
+            <VCard variant="tonal">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Alamat</div>
+                <div class="text-body-1 text-break">{{ detailItem?.address || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Dibuat</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Diubah</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+        </VRow>
       </VCardText>
       <VCardActions class="justify-end">
         <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
@@ -445,4 +506,3 @@ onMounted(async () => {
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
-

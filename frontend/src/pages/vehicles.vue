@@ -378,20 +378,88 @@ onMounted(fetchVehicles)
     <VCard>
       <VCardItem title="Detail Kendaraan" />
       <VCardText>
-        <VTable density="compact">
-          <tbody>
-            <tr><td>Plat</td><td class="text-end font-weight-medium">{{ detailItem?.plate_number || '-' }}</td></tr>
-            <tr><td>Lambung</td><td class="text-end">{{ detailItem?.hull_number || '-' }}</td></tr>
-            <tr><td>Rangka</td><td class="text-end">{{ detailItem?.frame_number || '-' }}</td></tr>
-            <tr><td>Mesin</td><td class="text-end">{{ detailItem?.machine_number || '-' }}</td></tr>
-            <tr><td>Tipe</td><td class="text-end">{{ detailItem?.vehicle_type || '-' }}</td></tr>
-            <tr><td>Merek</td><td class="text-end">{{ detailItem?.brand || '-' }}</td></tr>
-            <tr><td>Model</td><td class="text-end">{{ detailItem?.model || '-' }}</td></tr>
-            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
-            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
-            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
-          </tbody>
-        </VTable>
+        <VRow>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Plat</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailItem?.plate_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Lambung</div>
+                <div class="text-body-1 text-break">{{ detailItem?.hull_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Rangka</div>
+                <div class="text-body-1 text-break">{{ detailItem?.frame_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Mesin</div>
+                <div class="text-body-1 text-break">{{ detailItem?.machine_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Tipe</div>
+                <div class="text-body-1 text-break">{{ detailItem?.vehicle_type || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Merek</div>
+                <div class="text-body-1 text-break">{{ detailItem?.brand || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Model</div>
+                <div class="text-body-1 text-break">{{ detailItem?.model || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Status</div>
+                <div class="text-body-1 text-break">{{ detailItem?.status || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Dibuat</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Diubah</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+        </VRow>
       </VCardText>
       <VCardActions class="justify-end">
         <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
@@ -401,7 +469,6 @@ onMounted(fetchVehicles)
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
-
 
 
 

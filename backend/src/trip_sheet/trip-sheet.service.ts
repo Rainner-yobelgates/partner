@@ -96,7 +96,7 @@ export class TripSheetService {
 
       return {
         success: true,
-        message: 'Data trip sheet berhasil diambil',
+        message: 'Data surat jalan berhasil diambil',
         data: data.map((t) => this.serializeTripSheet(t)),
         total,
         page,
@@ -160,13 +160,13 @@ export class TripSheetService {
       if (!tripSheet) {
         throw new NotFoundException({
           success: false,
-          message: `Trip sheet dengan UUID ${uuid} tidak ditemukan`,
+          message: `Surat jalan dengan UUID ${uuid} tidak ditemukan`,
         });
       }
 
       return {
         success: true,
-        message: 'Data trip sheet berhasil diambil',
+        message: 'Data surat jalan berhasil diambil',
         data: {
           ...this.serializeTripSheet(tripSheet),
           created_by: tripSheet.created_by?.toString() ?? null,
@@ -188,7 +188,7 @@ export class TripSheetService {
       if (!tripSheet) {
         throw new NotFoundException({
           success: false,
-          message: `Trip sheet dengan ID ${id} tidak ditemukan`,
+          message: `Surat jalan dengan ID ${id} tidak ditemukan`,
         });
       }
 
@@ -221,7 +221,7 @@ export class TripSheetService {
 
       return {
         success: true,
-        message: 'Trip sheet berhasil diperbarui',
+        message: 'Surat jalan berhasil diperbarui',
         data: this.serializeTripSheet(updated),
       };
     } catch (error: unknown) {
@@ -280,13 +280,13 @@ export class TripSheetService {
       if (!tripSheet) {
         throw new NotFoundException({
           success: false,
-          message: `Trip sheet dengan UUID ${uuid} tidak ditemukan`,
+          message: `Surat jalan dengan UUID ${uuid} tidak ditemukan`,
         });
       }
 
       return {
         success: true,
-        message: 'Data trip sheet berhasil diambil',
+        message: 'Data surat jalan berhasil diambil',
         data: this.serializeTripSheet(tripSheet),
       };
     } catch (error: unknown) {
@@ -309,14 +309,14 @@ export class TripSheetService {
       if (!tripSheet) {
         throw new NotFoundException({
           success: false,
-          message: `Trip sheet dengan UUID ${uuid} tidak ditemukan`,
+          message: `Surat jalan dengan UUID ${uuid} tidak ditemukan`,
         });
       }
 
       if (tripSheet.public_submitted_at) {
         throw new BadRequestException({
           success: false,
-          message: 'Trip sheet dari link ini sudah pernah diisi dan tidak dapat diubah lagi.',
+          message: 'Surat jalan dari link ini sudah pernah diisi dan tidak dapat diubah lagi.',
         });
       }
 
@@ -345,7 +345,7 @@ export class TripSheetService {
 
       return {
         success: true,
-        message: 'Trip sheet berhasil diperbarui',
+        message: 'Surat jalan berhasil diperbarui',
         data: this.serializeTripSheet(updated),
       };
     } catch (error: unknown) {

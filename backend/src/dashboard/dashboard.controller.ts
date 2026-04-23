@@ -16,7 +16,7 @@ export class DashboardController {
   @ApiOperation({
     summary: 'Ringkasan dashboard',
     description:
-      'Mengembalikan ringkasan master data, report tahunan, finansial klien, dan finansial pesanan.',
+      'Mengembalikan ringkasan master data, report tahunan, finansial klien, dan finansial reservasi.',
   })
   @ApiQuery({ name: 'year', required: false, example: 2026, description: 'Filter tahun (default: tahun saat ini)' })
   @ApiQuery({ name: 'client_id', required: false, example: '1', description: 'Filter client untuk section klien' })

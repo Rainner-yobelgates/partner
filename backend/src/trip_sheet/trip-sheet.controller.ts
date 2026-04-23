@@ -125,9 +125,9 @@ export class TripSheetController {
   @Get()
   @Permission('trip_sheet', 'read')
   @ApiOperation({
-    summary: 'Ambil semua data trip sheet',
+    summary: 'Ambil semua data surat jalan',
     description:
-      'Menampilkan daftar trip sheet dengan pagination, search, filter, dan sorting.',
+      'Menampilkan daftar surat jalan dengan pagination, search, filter, dan sorting.',
   })
   @ApiQuery({ name: 'page', required: false, example: '1', description: 'Halaman saat ini' })
   @ApiQuery({ name: 'perPage', required: false, example: '10', description: 'Jumlah data per halaman' })
@@ -147,10 +147,10 @@ export class TripSheetController {
   @Get(':uuid')
   @Permission('trip_sheet', 'detail')
   @ApiOperation({
-    summary: 'Ambil detail trip sheet by UUID',
-    description: 'Menampilkan detail satu trip sheet berdasarkan trip_sheets_uuid.',
+    summary: 'Ambil detail surat jalan by UUID',
+    description: 'Menampilkan detail satu surat jalan berdasarkan trip_sheets_uuid.',
   })
-  @ApiParam({ name: 'uuid', description: 'UUID trip sheet (trip_sheets_uuid)', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiParam({ name: 'uuid', description: 'UUID surat jalan (trip_sheets_uuid)', example: '550e8400-e29b-41d4-a716-446655440000' })
   findOne(@Param('uuid') uuid: string) {
     return this.tripSheetService.findOne(uuid);
   }
@@ -158,10 +158,10 @@ export class TripSheetController {
   @Put(':id')
   @Permission('trip_sheet', 'update')
   @ApiOperation({
-    summary: 'Update trip sheet by ID',
-    description: 'Memperbarui data trip sheet berdasarkan id. Semua field bersifat opsional.',
+    summary: 'Update surat jalan by ID',
+    description: 'Memperbarui data surat jalan berdasarkan id. Semua field bersifat opsional.',
   })
-  @ApiParam({ name: 'id', description: 'ID trip sheet (integer)', example: 1 })
+  @ApiParam({ name: 'id', description: 'ID surat jalan (integer)', example: 1 })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {

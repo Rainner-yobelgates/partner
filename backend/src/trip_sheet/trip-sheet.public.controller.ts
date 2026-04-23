@@ -106,20 +106,20 @@ export class TripSheetPublicController {
 
   @Get(':uuid')
   @ApiOperation({
-    summary: 'Ambil trip sheet (public) by UUID',
-    description: 'Endpoint publik untuk driver mengisi trip sheet.',
+    summary: 'Ambil surat jalan (public) by UUID',
+    description: 'Endpoint publik untuk driver mengisi surat jalan.',
   })
-  @ApiParam({ name: 'uuid', description: 'UUID trip sheet', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiParam({ name: 'uuid', description: 'UUID surat jalan', example: '550e8400-e29b-41d4-a716-446655440000' })
   findPublic(@Param('uuid') uuid: string) {
     return this.tripSheetService.findPublic(uuid);
   }
 
   @Put(':uuid')
   @ApiOperation({
-    summary: 'Update trip sheet (public) by UUID',
-    description: 'Endpoint publik untuk update input trip sheet oleh driver. Link publik hanya bisa diisi satu kali.',
+    summary: 'Update surat jalan (public) by UUID',
+    description: 'Endpoint publik untuk update input surat jalan oleh driver. Link publik hanya bisa diisi satu kali.',
   })
-  @ApiParam({ name: 'uuid', description: 'UUID trip sheet', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiParam({ name: 'uuid', description: 'UUID surat jalan', example: '550e8400-e29b-41d4-a716-446655440000' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {

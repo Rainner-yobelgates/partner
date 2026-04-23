@@ -2,11 +2,15 @@
 import { ApiError } from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { facilityMasterService, type FacilityItem, type MasterStatus } from '@/services/masters'
-import { blockKeysInvalidNumberMoneyInput } from '@/utils/money-input'
+import {
+  blockKeysNonDecimalMoney,
+  onPasteSanitizedDecimalMoney,
+  parseOptionalApiDecimalMoney,
+} from '@/utils/money-input'
 
 type FacilityForm = {
   name: string
-  cost: number | null
+  cost: string
   description: string
   status: MasterStatus
 }
@@ -34,7 +38,7 @@ const canDetail = computed(() => authStore.hasPermission('facility:detail'))
 
 const form = ref<FacilityForm>({
   name: '',
-  cost: null,
+  cost: '',
   description: '',
   status: 'ACTIVE',
 })
@@ -87,7 +91,7 @@ const resetForm = () => {
   editedItem.value = null
   form.value = {
     name: '',
-    cost: null,
+    cost: '',
     description: '',
     status: 'ACTIVE',
   }
@@ -102,11 +106,17 @@ const openEditDialog = (item: FacilityItem) => {
   editedItem.value = item
   form.value = {
     name: item.name,
-    cost: item.cost ?? null,
+    cost: item.cost ?? '',
     description: item.description || '',
     status: item.status || 'ACTIVE',
   }
   isFormDialogOpen.value = true
+}
+
+const onCostPaste = (event: ClipboardEvent) => {
+  onPasteSanitizedDecimalMoney(event, (sanitized) => {
+    form.value.cost = sanitized
+  })
 }
 
 const submitForm = async () => {
@@ -115,15 +125,21 @@ const submitForm = async () => {
 
   isSubmitting.value = true
 
-  if (form.value.cost === null || Number.isNaN(form.value.cost)) {
+  const parsedCost = parseOptionalApiDecimalMoney(form.value.cost)
+  if (parsedCost === undefined) {
     showToast('Biaya wajib diisi', 'error')
+    isSubmitting.value = false
+    return
+  }
+  if (parsedCost === '__invalid__') {
+    showToast('Format biaya tidak valid. Gunakan format desimal non-negatif (maks 13 digit bulat, 2 digit desimal).', 'error')
     isSubmitting.value = false
     return
   }
 
   const payload = {
     name: form.value.name.trim(),
-    cost: form.value.cost,
+    cost: parsedCost,
     description: form.value.description.trim() || undefined,
     status: form.value.status,
   }
@@ -294,15 +310,20 @@ onMounted(fetchFacilities)
             <VCol cols="12" md="6"><VTextField v-model="form.name" label="Nama" :rules="[v => !!v || 'Nama wajib diisi']" /></VCol>
             <VCol cols="12" md="6">
               <VTextField
-                v-model.number="form.cost"
+                v-model="form.cost"
                 label="Biaya"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                :rules="[v => v !== null && v !== '' || 'Biaya wajib diisi']"
-                @keydown="blockKeysInvalidNumberMoneyInput"
+                :rules="[
+                  v => !!String(v ?? '').trim() || 'Biaya wajib diisi',
+                  v => {
+                    const parsed = parseOptionalApiDecimalMoney(String(v ?? ''))
+                    return parsed !== '__invalid__' || 'Format biaya tidak valid (contoh: 50000.00)'
+                  },
+                ]"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onCostPaste"
               />
             </VCol>
             <VCol cols="12" md="6"><VSelect v-model="form.status" label="Status" :items="['ACTIVE','INACTIVE']" /></VCol>
@@ -332,16 +353,56 @@ onMounted(fetchFacilities)
     <VCard>
       <VCardItem title="Detail Fasilitas" />
       <VCardText>
-        <VTable density="compact">
-          <tbody>
-            <tr><td>Nama</td><td class="text-end font-weight-medium">{{ detailItem?.name || '-' }}</td></tr>
-            <tr><td>Biaya</td><td class="text-end">{{ detailItem?.cost ?? '-' }}</td></tr>
-            <tr><td>Deskripsi</td><td class="text-end">{{ detailItem?.description || '-' }}</td></tr>
-            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
-            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
-            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
-          </tbody>
-        </VTable>
+        <VRow>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Nama</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailItem?.name || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Biaya</div>
+                <div class="text-body-1 text-break">{{ detailItem?.cost ?? '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12">
+            <VCard variant="tonal">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Deskripsi</div>
+                <div class="text-body-1 text-break">{{ detailItem?.description || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Status</div>
+                <div class="text-body-1 text-break">{{ detailItem?.status || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Dibuat</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Diubah</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+        </VRow>
       </VCardText>
       <VCardActions class="justify-end">
         <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
@@ -351,6 +412,4 @@ onMounted(fetchFacilities)
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
-
-
 

@@ -3,19 +3,27 @@ import { useRoute } from 'vue-router'
 import { ApiError } from '@/services/http'
 import { tripSheetService, type TripSheetItem } from '@/services/trip-sheets'
 import { driverMasterService, type DriverItem, type MasterStatus } from '@/services/masters'
-import { blockKeysInvalidNumberMoneyInput } from '@/utils/money-input'
+import {
+  blockKeysNonDecimalMoney,
+  onPasteSanitizedDecimalMoney,
+  parseOptionalApiDecimalMoney,
+  sanitizeDecimalMoneyInput,
+} from '@/utils/money-input'
 
 type TripSheetPublicForm = {
   driver_id: string
   assistant_id: string
-  fuel_cost: number | null
-  toll_fee: number | null
-  parking_fee: number | null
-  stay_cost: number | null
-  others: number | null
+  fuel_cost: string
+  toll_fee: string
+  parking_fee: string
+  stay_cost: string
+  others: string
   expense_notes: string
   status: MasterStatus
 }
+
+type MoneyField = 'fuel_cost' | 'toll_fee' | 'parking_fee' | 'stay_cost' | 'others'
+type ParsedMoneyPayload = Partial<Record<MoneyField, string>>
 
 type AttachmentPreview = {
   id: string
@@ -40,11 +48,11 @@ const maxAttachmentCount = 15
 const form = ref<TripSheetPublicForm>({
   driver_id: '',
   assistant_id: '',
-  fuel_cost: null,
-  toll_fee: null,
-  parking_fee: null,
-  stay_cost: null,
-  others: null,
+  fuel_cost: '',
+  toll_fee: '',
+  parking_fee: '',
+  stay_cost: '',
+  others: '',
   expense_notes: '',
   status: 'ACTIVE',
 })
@@ -144,14 +152,56 @@ const formatFileSize = (size: number) => {
 
 const buildAttachmentKey = (file: File) => `${file.name}-${file.size}-${file.lastModified}`
 
-const feeToInput = (v: number | string | null | undefined) => {
-  if (v == null || v === '')
-    return null
-  const n = typeof v === 'number' ? v : Number(v)
-  return Number.isFinite(n) ? n : null
+const fromMoneyResponse = (value: string | number | null | undefined) => {
+  if (value == null)
+    return ''
+  const s = String(value).trim()
+  return s === '' ? '' : s
 }
 
-const buildFormData = () => {
+const onMoneyFieldInput = (field: MoneyField, value: string) => {
+  form.value[field] = sanitizeDecimalMoneyInput(String(value ?? ''))
+}
+
+const onMoneyFieldPaste = (field: MoneyField, event: ClipboardEvent) => {
+  onPasteSanitizedDecimalMoney(event, (sanitized) => {
+    form.value[field] = sanitized
+  })
+}
+
+const moneyFieldRule = (value: string) => {
+  const parsed = parseOptionalApiDecimalMoney(String(value ?? ''))
+  return parsed !== '__invalid__' || 'Format uang tidak valid (maks 13 digit bulat, 2 digit desimal).'
+}
+
+const parseMoneyPayload = (): ParsedMoneyPayload | null => {
+  const parsedFuel = parseOptionalApiDecimalMoney(form.value.fuel_cost)
+  const parsedToll = parseOptionalApiDecimalMoney(form.value.toll_fee)
+  const parsedParking = parseOptionalApiDecimalMoney(form.value.parking_fee)
+  const parsedStay = parseOptionalApiDecimalMoney(form.value.stay_cost)
+  const parsedOthers = parseOptionalApiDecimalMoney(form.value.others)
+
+  if (
+    parsedFuel === '__invalid__'
+    || parsedToll === '__invalid__'
+    || parsedParking === '__invalid__'
+    || parsedStay === '__invalid__'
+    || parsedOthers === '__invalid__'
+  ) {
+    showToast('Nilai uang tidak valid. Gunakan desimal non-negatif (maks 13 digit bulat, 2 digit desimal).', 'error')
+    return null
+  }
+
+  return {
+    ...(parsedFuel !== undefined && { fuel_cost: parsedFuel }),
+    ...(parsedToll !== undefined && { toll_fee: parsedToll }),
+    ...(parsedParking !== undefined && { parking_fee: parsedParking }),
+    ...(parsedStay !== undefined && { stay_cost: parsedStay }),
+    ...(parsedOthers !== undefined && { others: parsedOthers }),
+  }
+}
+
+const buildFormData = (moneyPayload: ParsedMoneyPayload) => {
   const data = new FormData()
   const existing = existingAttachments.value.filter((item) => item && item.trim())
 
@@ -161,20 +211,20 @@ const buildFormData = () => {
   if (form.value.assistant_id.trim())
     data.append('assistant_id', form.value.assistant_id.trim())
 
-  if (form.value.fuel_cost !== null && form.value.fuel_cost !== undefined)
-    data.append('fuel_cost', String(form.value.fuel_cost))
+  if (moneyPayload.fuel_cost !== undefined)
+    data.append('fuel_cost', moneyPayload.fuel_cost)
 
-  if (form.value.toll_fee !== null && form.value.toll_fee !== undefined)
-    data.append('toll_fee', String(form.value.toll_fee))
+  if (moneyPayload.toll_fee !== undefined)
+    data.append('toll_fee', moneyPayload.toll_fee)
 
-  if (form.value.parking_fee !== null && form.value.parking_fee !== undefined)
-    data.append('parking_fee', String(form.value.parking_fee))
+  if (moneyPayload.parking_fee !== undefined)
+    data.append('parking_fee', moneyPayload.parking_fee)
 
-  if (form.value.stay_cost !== null && form.value.stay_cost !== undefined)
-    data.append('stay_cost', String(form.value.stay_cost))
+  if (moneyPayload.stay_cost !== undefined)
+    data.append('stay_cost', moneyPayload.stay_cost)
 
-  if (form.value.others !== null && form.value.others !== undefined)
-    data.append('others', String(form.value.others))
+  if (moneyPayload.others !== undefined)
+    data.append('others', moneyPayload.others)
 
   if (form.value.expense_notes.trim())
     data.append('expense_notes', form.value.expense_notes.trim())
@@ -256,7 +306,7 @@ const onAttachmentInputChange = (event: Event) => {
   }
 
   if (newAttachments.value.length >= maxAttachmentCount && files.length > remainingSlots)
-    showToast(`Maksimal ${maxAttachmentCount} gambar per trip sheet.`, 'error')
+    showToast(`Maksimal ${maxAttachmentCount} gambar per surat jalan.`, 'error')
 
   if (skippedType)
     showToast(`${skippedType} file dilewati karena bukan gambar.`, 'error')
@@ -293,11 +343,11 @@ const loadTripSheet = async () => {
     form.value = {
       driver_id: response.data.driver_id || '',
       assistant_id: response.data.assistant_id || '',
-      fuel_cost: feeToInput(response.data.fuel_cost),
-      toll_fee: feeToInput(response.data.toll_fee),
-      parking_fee: feeToInput(response.data.parking_fee),
-      stay_cost: feeToInput(response.data.stay_cost),
-      others: feeToInput(response.data.others),
+      fuel_cost: fromMoneyResponse(response.data.fuel_cost),
+      toll_fee: fromMoneyResponse(response.data.toll_fee),
+      parking_fee: fromMoneyResponse(response.data.parking_fee),
+      stay_cost: fromMoneyResponse(response.data.stay_cost),
+      others: fromMoneyResponse(response.data.others),
       expense_notes: response.data.expense_notes || '',
       status: response.data.status || 'ACTIVE',
     }
@@ -336,18 +386,22 @@ const submitForm = async () => {
     return
 
   if (isPublicLocked.value) {
-    showToast('Trip sheet dari link ini sudah pernah diisi.', 'error')
+    showToast('Surat jalan dari link ini sudah pernah diisi.', 'error')
     return
   }
 
   if (!validateAttachments())
     return
 
+  const moneyPayload = parseMoneyPayload()
+  if (!moneyPayload)
+    return
+
   isSubmitting.value = true
 
   try {
-    await tripSheetService.publicUpdate(uuid.value, buildFormData())
-    showToast('Trip sheet berhasil disimpan')
+    await tripSheetService.publicUpdate(uuid.value, buildFormData(moneyPayload))
+    showToast('Surat jalan berhasil disimpan')
     await loadTripSheet()
   }
   catch (error) {
@@ -377,15 +431,15 @@ onBeforeUnmount(() => {
       <VCardItem>
         <template #title>
           <div class="d-flex flex-column gap-1">
-            <span class="text-h6">Trip Sheet Driver</span>
+            <span class="text-h6">Surat Jalan Driver</span>
             <span class="text-sm text-medium-emphasis">Silakan lengkapi data perjalanan di bawah ini.</span>
           </div>
         </template>
       </VCardItem>
 
       <VCardText>
-        <VAlert v-if="isLoading" type="info" variant="tonal">Memuat data trip sheet...</VAlert>
-        <VAlert v-else-if="!tripSheet" type="error" variant="tonal">Trip sheet tidak ditemukan.</VAlert>
+        <VAlert v-if="isLoading" type="info" variant="tonal">Memuat data surat jalan...</VAlert>
+        <VAlert v-else-if="!tripSheet" type="error" variant="tonal">Surat jalan tidak ditemukan.</VAlert>
         <VAlert
           v-else-if="isPublicLocked"
           type="success"
@@ -463,67 +517,72 @@ onBeforeUnmount(() => {
             <VCol cols="12" md="6"><VSelect v-model="form.status" :disabled="isPublicLocked || isSubmitting" label="Status" :items="['ACTIVE', 'INACTIVE']" /></VCol>
             <VCol cols="12" md="3">
               <VTextField
-                v-model.number="form.fuel_cost"
+                v-model="form.fuel_cost"
                 :disabled="isPublicLocked || isSubmitting"
                 label="Biaya BBM"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                @keydown="blockKeysInvalidNumberMoneyInput"
+                :rules="[moneyFieldRule]"
+                @update:model-value="onMoneyFieldInput('fuel_cost', String($event ?? ''))"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onMoneyFieldPaste('fuel_cost', $event)"
               />
             </VCol>
             <VCol cols="12" md="3">
               <VTextField
-                v-model.number="form.toll_fee"
+                v-model="form.toll_fee"
                 :disabled="isPublicLocked || isSubmitting"
                 label="Biaya Tol"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                @keydown="blockKeysInvalidNumberMoneyInput"
+                :rules="[moneyFieldRule]"
+                @update:model-value="onMoneyFieldInput('toll_fee', String($event ?? ''))"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onMoneyFieldPaste('toll_fee', $event)"
               />
             </VCol>
             <VCol cols="12" md="3">
               <VTextField
-                v-model.number="form.parking_fee"
+                v-model="form.parking_fee"
                 :disabled="isPublicLocked || isSubmitting"
                 label="Biaya Parkir"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                @keydown="blockKeysInvalidNumberMoneyInput"
+                :rules="[moneyFieldRule]"
+                @update:model-value="onMoneyFieldInput('parking_fee', String($event ?? ''))"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onMoneyFieldPaste('parking_fee', $event)"
               />
             </VCol>
             <VCol cols="12" md="3">
               <VTextField
-                v-model.number="form.stay_cost"
+                v-model="form.stay_cost"
                 :disabled="isPublicLocked || isSubmitting"
                 label="Biaya Inap"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                @keydown="blockKeysInvalidNumberMoneyInput"
+                :rules="[moneyFieldRule]"
+                @update:model-value="onMoneyFieldInput('stay_cost', String($event ?? ''))"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onMoneyFieldPaste('stay_cost', $event)"
               />
             </VCol>
             <VCol cols="12" md="3">
               <VTextField
-                v-model.number="form.others"
+                v-model="form.others"
                 :disabled="isPublicLocked || isSubmitting"
                 label="Biaya lain-lain"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                @keydown="blockKeysInvalidNumberMoneyInput"
+                :rules="[moneyFieldRule]"
+                @update:model-value="onMoneyFieldInput('others', String($event ?? ''))"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onMoneyFieldPaste('others', $event)"
               />
             </VCol>
 

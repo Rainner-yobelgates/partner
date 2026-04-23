@@ -93,7 +93,7 @@ export class OrderService {
 
       return {
         success: true,
-        message: 'Rekapitulasi pesanan berhasil diambil',
+        message: 'Rekapitulasi reservasi berhasil diambil',
         data,
         summary: {
           order_count: data.length,

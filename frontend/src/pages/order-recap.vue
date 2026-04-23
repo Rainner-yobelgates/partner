@@ -114,7 +114,7 @@ onMounted(() => {
   <VCard>
     <VCardItem>
       <template #title>
-        <span class="text-h6">Rekap Pesanan</span>
+        <span class="text-h6">Rekap Reservasi</span>
       </template>
       <template #subtitle>
         <span class="text-body-2 text-medium-emphasis">
@@ -158,11 +158,11 @@ onMounted(() => {
     <VCardText v-if="summary">
       <VRow>
         <VCol cols="12" md="4">
-          <div class="text-caption text-medium-emphasis">Total pemasukan ({{ summary.order_count }} pesanan)</div>
+          <div class="text-caption text-medium-emphasis">Total pemasukan ({{ summary.order_count }} reservasi)</div>
           <div class="text-h6">{{ formatMoneyId(summary.total_income) }}</div>
         </VCol>
         <VCol cols="12" md="4">
-          <div class="text-caption text-medium-emphasis">Total pengeluaran trip sheet</div>
+          <div class="text-caption text-medium-emphasis">Total pengeluaran surat jalan</div>
           <div class="text-h6">{{ formatMoneyId(summary.total_expense) }}</div>
         </VCol>
         <VCol cols="12" md="4">
@@ -180,7 +180,7 @@ onMounted(() => {
         <VTable density="compact" class="text-no-wrap">
           <thead>
             <tr>
-              <th>No. Pesanan</th>
+              <th>No. Reservasi</th>
               <th>Customer</th>
               <th>Telepon</th>
               <th>Dibuat</th>
@@ -199,7 +199,7 @@ onMounted(() => {
           <tbody>
             <tr v-if="!isLoading && rows.length === 0">
               <td colspan="14" class="text-center text-medium-emphasis py-8">
-                Tidak ada pesanan pada periode ini.
+                Tidak ada reservasi pada periode ini.
               </td>
             </tr>
             <tr v-for="row in rows" :key="row.id">

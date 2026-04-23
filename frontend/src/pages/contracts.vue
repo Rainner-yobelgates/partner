@@ -397,21 +397,96 @@ onMounted(async () => {
     <VCard>
       <VCardItem title="Detail Kontrak" />
       <VCardText>
-        <VTable density="compact">
-          <tbody>
-            <tr><td>Nomor Kontrak</td><td class="text-end font-weight-medium">{{ detailItem?.contract_number || '-' }}</td></tr>
-            <tr><td>Client</td><td class="text-end">{{ detailItem?.client?.name || '-' }}</td></tr>
-            <tr><td>Periode</td><td class="text-end">{{ formatPeriod(detailItem?.contract_month, detailItem?.contract_year) }}</td></tr>
-            <tr><td>PIC</td><td class="text-end">{{ detailItem?.contact_person || '-' }}</td></tr>
-            <tr><td>Telepon</td><td class="text-end">{{ detailItem?.phone_number || '-' }}</td></tr>
-            <tr><td>Email</td><td class="text-end">{{ detailItem?.email || '-' }}</td></tr>
-            <tr><td>Alamat</td><td class="text-end">{{ detailItem?.address || '-' }}</td></tr>
-            <tr><td>Nilai kontrak</td><td class="text-end">{{ detailItem ? formatMoneyId(detailItem.contract_value) : '-' }}</td></tr>
-            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
-            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
-            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
-          </tbody>
-        </VTable>
+        <VRow>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Nomor Kontrak</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailItem?.contract_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Client</div>
+                <div class="text-body-1 text-break">{{ detailItem?.client?.name || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Periode</div>
+                <div class="text-body-1 text-break">{{ formatPeriod(detailItem?.contract_month, detailItem?.contract_year) }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Nilai Kontrak</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatMoneyId(detailItem.contract_value) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">PIC</div>
+                <div class="text-body-1 text-break">{{ detailItem?.contact_person || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Telepon</div>
+                <div class="text-body-1 text-break">{{ detailItem?.phone_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Email</div>
+                <div class="text-body-1 text-break">{{ detailItem?.email || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12">
+            <VCard variant="tonal">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Alamat</div>
+                <div class="text-body-1 text-break">{{ detailItem?.address || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Status</div>
+                <div class="text-body-1 text-break">{{ detailItem?.status || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Dibuat</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Diubah</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+        </VRow>
       </VCardText>
       <VCardActions class="justify-end">
         <VBtn variant="text" @click="isDetailDialogOpen = false">Tutup</VBtn>

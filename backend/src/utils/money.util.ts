@@ -4,7 +4,7 @@ import { Prisma } from 'generated/prisma/client';
 export const MONEY_DECIMAL_REGEX = /^\d{1,13}(\.\d{1,2})?$/;
 
 export const MONEY_DECIMAL_MESSAGE =
-  'Nilai uang harus string desimal non-negatif, paling banyak 13 digit di bagian bulat dan 2 digit desimal (DECIMAL 15,2)';
+  'Nilai uang harus string';
 
 export function toPrismaDecimal(
   value: string | null | undefined,

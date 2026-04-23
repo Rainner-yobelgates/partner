@@ -299,7 +299,7 @@ onMounted(async () => {
         <VCardItem title="Filter Tahun">
           <template #subtitle>
             <span class="text-body-2 text-medium-emphasis">
-              Berlaku untuk Report Tahunan, Finansial Klien, dan Rekap Pesanan.
+              Berlaku untuk Report Tahunan, Finansial Klien, dan Rekap Reservasi.
             </span>
           </template>
         </VCardItem>
@@ -396,7 +396,7 @@ onMounted(async () => {
 
     <VCol cols="12" xl="6">
       <VCard>
-        <VCardItem title="Finansial Klien (Kontrak vs AJK)">
+        <VCardItem title="Finansial Klien (Kontrak vs Klien)">
           <template #subtitle>
             <span class="text-body-2 text-medium-emphasis">
               Pendapatan dari kontrak, pengeluaran dari antar jemput.
@@ -430,7 +430,7 @@ onMounted(async () => {
 
           <VDivider class="my-4" />
 
-          <div class="text-subtitle-2 mb-2">Breakdown Pengeluaran AJK</div>
+          <div class="text-subtitle-2 mb-2">Breakdown Pengeluaran Klien</div>
           <VTable density="compact">
             <tbody>
               <tr v-for="row in clientExpenseRows" :key="row.label">
@@ -445,10 +445,10 @@ onMounted(async () => {
 
     <VCol cols="12" xl="6">
       <VCard>
-        <VCardItem title="Order Section (Rekap Pesanan)">
+        <VCardItem title="Order Section (Rekap Reservasi)">
           <template #subtitle>
             <span class="text-body-2 text-medium-emphasis">
-              Pendapatan dari pesanan, pengeluaran dari trip sheet (tanpa filter client).
+              Pendapatan dari reservasi, pengeluaran dari surat jalan (tanpa filter client).
             </span>
           </template>
         </VCardItem>
@@ -480,7 +480,7 @@ onMounted(async () => {
           <VDivider class="my-4" />
 
           <div class="text-subtitle-2 mb-2">
-            Breakdown Pengeluaran Trip Sheet ({{ orderFinancial?.summary.order_count ?? 0 }} pesanan)
+            Breakdown Pengeluaran Surat Jalan ({{ orderFinancial?.summary.order_count ?? 0 }} reservasi)
           </div>
           <VTable density="compact">
             <tbody>

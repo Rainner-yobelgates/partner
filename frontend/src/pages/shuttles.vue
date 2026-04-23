@@ -335,21 +335,96 @@ onMounted(async () => { await fetchOptions(); await fetchShuttles() })
     <VCard>
       <VCardItem title="Detail Antar Jemput" />
       <VCardText>
-        <VTable density="compact">
-          <tbody>
-            <tr><td>Klien</td><td class="text-end font-weight-medium">{{ detailItem?.client?.name || '-' }}</td></tr>
-            <tr><td>Kendaraan</td><td class="text-end">{{ detailItem?.vehicle?.plate_number || '-' }}</td></tr>
-            <tr><td>Rute</td><td class="text-end">{{ detailItem?.route ? `${detailItem.route.origin || '-'} -> ${detailItem.route.destination || '-'}` : '-' }}</td></tr>
-            <tr><td>Jadwal</td><td class="text-end">{{ detailItem ? formatDate(detailItem.scheduled_date) : '-' }}</td></tr>
-            <tr><td>Insentif Kru</td><td class="text-end">{{ detailItem ? formatMoneyId(detailItem.crew_incentive) : '-' }}</td></tr>
-            <tr><td>BBM</td><td class="text-end">{{ detailItem ? formatMoneyId(detailItem.fuel) : '-' }}</td></tr>
-            <tr><td>Biaya Tol</td><td class="text-end">{{ detailItem ? formatMoneyId(detailItem.toll_fee) : '-' }}</td></tr>
-            <tr><td>Lainnya</td><td class="text-end">{{ detailItem ? formatMoneyId(detailItem.others) : '-' }}</td></tr>
-            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
-            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
-            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
-          </tbody>
-        </VTable>
+        <VRow>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Klien</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailItem?.client?.name || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Kendaraan</div>
+                <div class="text-body-1 text-break">{{ detailItem?.vehicle?.plate_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Rute</div>
+                <div class="text-body-1 text-break">{{ detailItem?.route ? `${detailItem.route.origin || '-'} -> ${detailItem.route.destination || '-'}` : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Jadwal</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.scheduled_date) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="3">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Insentif Kru</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatMoneyId(detailItem.crew_incentive) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="3">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">BBM</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatMoneyId(detailItem.fuel) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="3">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Biaya Tol</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatMoneyId(detailItem.toll_fee) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="3">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Lainnya</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatMoneyId(detailItem.others) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Status</div>
+                <div class="text-body-1 text-break">{{ detailItem?.status || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Dibuat</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Diubah</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+        </VRow>
       </VCardText>
       <VCardActions class="justify-end">
         <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
@@ -359,5 +434,4 @@ onMounted(async () => { await fetchOptions(); await fetchShuttles() })
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
-
 

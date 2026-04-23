@@ -30,7 +30,7 @@ const navGroups: NavGroupDef[] = [
     ],
   },
   {
-    title: 'Klien',
+    title: 'AJK',
     icon: 'ri-briefcase-line',
     children: [
       { permission: 'client:read', item: { title: 'Client', icon: 'ri-community-line', to: '/clients' } },
@@ -42,16 +42,16 @@ const navGroups: NavGroupDef[] = [
     title: 'Rekapitulasi',
     icon: 'ri-pie-chart-2-line',
     children: [
-      { permission: 'order-recap:read', item: { title: 'Rekap Pesanan', icon: 'ri-calculator-line', to: '/order-recap' } },
-      { permission: 'client-recap:read', item: { title: 'Rekap Klien', icon: 'ri-scales-3-line', to: '/contract-recap' } },
+      { permission: 'order-recap:read', item: { title: 'Rekap Reservasi', icon: 'ri-calculator-line', to: '/order-recap' } },
+      { permission: 'client-recap:read', item: { title: 'Rekap AJK', icon: 'ri-scales-3-line', to: '/contract-recap' } },
     ],
   },
   {
-    title: 'Pesanan',
+    title: 'Wisata',
     icon: 'ri-shopping-cart-line',
     children: [
-      { permission: 'order:read', item: { title: 'Pesanan', icon: 'ri-file-add-line', to: '/orders' } },
-      { permission: 'trip_sheet:read', item: { title: 'Trip Sheet', icon: 'ri-clipboard-line', to: '/trip-sheets' } },
+      { permission: 'order:read', item: { title: 'Reservasi', icon: 'ri-file-add-line', to: '/orders' } },
+      { permission: 'trip_sheet:read', item: { title: 'Surat Jalan', icon: 'ri-clipboard-line', to: '/trip-sheets' } },
     ],
   },
   {

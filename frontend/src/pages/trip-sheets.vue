@@ -3,20 +3,28 @@ import { ApiError } from '@/services/http'
 import { tripSheetService, type TripSheetItem } from '@/services/trip-sheets'
 import { driverMasterService, type DriverItem, type MasterStatus } from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
-import { blockKeysInvalidNumberMoneyInput } from '@/utils/money-input'
+import {
+  blockKeysNonDecimalMoney,
+  onPasteSanitizedDecimalMoney,
+  parseOptionalApiDecimalMoney,
+  sanitizeDecimalMoneyInput,
+} from '@/utils/money-input'
 
 type TripSheetForm = {
   order_vehicle_id: string
   driver_id: string
   assistant_id: string
-  fuel_cost: number | null
-  toll_fee: number | null
-  parking_fee: number | null
-  stay_cost: number | null
-  others: number | null
+  fuel_cost: string
+  toll_fee: string
+  parking_fee: string
+  stay_cost: string
+  others: string
   expense_notes: string
   status: MasterStatus
 }
+
+type MoneyField = 'fuel_cost' | 'toll_fee' | 'parking_fee' | 'stay_cost' | 'others'
+type ParsedMoneyPayload = Partial<Record<MoneyField, string>>
 
 const authStore = useAuthStore()
 const canUpdate = computed(() => authStore.hasPermission('trip_sheet:update'))
@@ -35,29 +43,31 @@ const isDriverOptionsLoading = ref(false)
 const isSubmitting = ref(false)
 const isFormDialogOpen = ref(false)
 const isDetailDialogOpen = ref(false)
+const isImagePreviewDialogOpen = ref(false)
 const editedItem = ref<TripSheetItem | null>(null)
 const detailItem = ref<TripSheetItem | null>(null)
+const selectedPreviewImage = ref('')
 const attachments = ref<File[]>([])
 const existingAttachments = ref<string[]>([])
 const maxAttachmentSizeMb = 5
 const maxAttachmentCount = 15
 
-const feeToInput = (v: number | string | null | undefined) => {
-  if (v == null || v === '')
-    return null
-  const n = typeof v === 'number' ? v : Number(v)
-  return Number.isFinite(n) ? n : null
+const fromMoneyResponse = (value: string | number | null | undefined) => {
+  if (value == null)
+    return ''
+  const s = String(value).trim()
+  return s === '' ? '' : s
 }
 
 const form = ref<TripSheetForm>({
   order_vehicle_id: '',
   driver_id: '',
   assistant_id: '',
-  fuel_cost: null,
-  toll_fee: null,
-  parking_fee: null,
-  stay_cost: null,
-  others: null,
+  fuel_cost: '',
+  toll_fee: '',
+  parking_fee: '',
+  stay_cost: '',
+  others: '',
   expense_notes: '',
   status: 'ACTIVE',
 })
@@ -137,7 +147,49 @@ const parseAttachmentValue = (value?: string | null) => {
   return [trimmed]
 }
 
-const buildFormData = () => {
+const onMoneyFieldInput = (field: MoneyField, value: string) => {
+  form.value[field] = sanitizeDecimalMoneyInput(String(value ?? ''))
+}
+
+const onMoneyFieldPaste = (field: MoneyField, event: ClipboardEvent) => {
+  onPasteSanitizedDecimalMoney(event, (sanitized) => {
+    form.value[field] = sanitized
+  })
+}
+
+const moneyFieldRule = (value: string) => {
+  const parsed = parseOptionalApiDecimalMoney(String(value ?? ''))
+  return parsed !== '__invalid__' || 'Format uang tidak valid (maks 13 digit bulat, 2 digit desimal).'
+}
+
+const parseMoneyPayload = (): ParsedMoneyPayload | null => {
+  const parsedFuel = parseOptionalApiDecimalMoney(form.value.fuel_cost)
+  const parsedToll = parseOptionalApiDecimalMoney(form.value.toll_fee)
+  const parsedParking = parseOptionalApiDecimalMoney(form.value.parking_fee)
+  const parsedStay = parseOptionalApiDecimalMoney(form.value.stay_cost)
+  const parsedOthers = parseOptionalApiDecimalMoney(form.value.others)
+
+  if (
+    parsedFuel === '__invalid__'
+    || parsedToll === '__invalid__'
+    || parsedParking === '__invalid__'
+    || parsedStay === '__invalid__'
+    || parsedOthers === '__invalid__'
+  ) {
+    showToast('Nilai uang tidak valid. Gunakan desimal non-negatif (maks 13 digit bulat, 2 digit desimal).', 'error')
+    return null
+  }
+
+  return {
+    ...(parsedFuel !== undefined && { fuel_cost: parsedFuel }),
+    ...(parsedToll !== undefined && { toll_fee: parsedToll }),
+    ...(parsedParking !== undefined && { parking_fee: parsedParking }),
+    ...(parsedStay !== undefined && { stay_cost: parsedStay }),
+    ...(parsedOthers !== undefined && { others: parsedOthers }),
+  }
+}
+
+const buildFormData = (moneyPayload: ParsedMoneyPayload) => {
   const data = new FormData()
   const existing = existingAttachments.value.filter((item) => item && item.trim())
 
@@ -149,20 +201,20 @@ const buildFormData = () => {
   if (form.value.assistant_id.trim())
     data.append('assistant_id', form.value.assistant_id.trim())
 
-  if (form.value.fuel_cost !== null && form.value.fuel_cost !== undefined)
-    data.append('fuel_cost', String(form.value.fuel_cost))
+  if (moneyPayload.fuel_cost !== undefined)
+    data.append('fuel_cost', moneyPayload.fuel_cost)
 
-  if (form.value.toll_fee !== null && form.value.toll_fee !== undefined)
-    data.append('toll_fee', String(form.value.toll_fee))
+  if (moneyPayload.toll_fee !== undefined)
+    data.append('toll_fee', moneyPayload.toll_fee)
 
-  if (form.value.parking_fee !== null && form.value.parking_fee !== undefined)
-    data.append('parking_fee', String(form.value.parking_fee))
+  if (moneyPayload.parking_fee !== undefined)
+    data.append('parking_fee', moneyPayload.parking_fee)
 
-  if (form.value.stay_cost !== null && form.value.stay_cost !== undefined)
-    data.append('stay_cost', String(form.value.stay_cost))
+  if (moneyPayload.stay_cost !== undefined)
+    data.append('stay_cost', moneyPayload.stay_cost)
 
-  if (form.value.others !== null && form.value.others !== undefined)
-    data.append('others', String(form.value.others))
+  if (moneyPayload.others !== undefined)
+    data.append('others', moneyPayload.others)
 
   if (form.value.expense_notes.trim())
     data.append('expense_notes', form.value.expense_notes.trim())
@@ -192,6 +244,11 @@ const clearNewAttachments = () => {
 }
 
 const detailAttachmentList = computed(() => parseAttachmentValue(detailItem.value?.attachment))
+
+const openDetailImagePreview = (url: string) => {
+  selectedPreviewImage.value = url
+  isImagePreviewDialogOpen.value = true
+}
 
 const validateAttachments = () => {
   if (attachments.value.length > maxAttachmentCount) {
@@ -260,11 +317,11 @@ const openEditDialog = (item: TripSheetItem) => {
     order_vehicle_id: item.order_vehicle_id || '',
     driver_id: item.driver_id || '',
     assistant_id: item.assistant_id || '',
-    fuel_cost: feeToInput(item.fuel_cost),
-    toll_fee: feeToInput(item.toll_fee),
-    parking_fee: feeToInput(item.parking_fee),
-    stay_cost: feeToInput(item.stay_cost),
-    others: feeToInput(item.others),
+    fuel_cost: fromMoneyResponse(item.fuel_cost),
+    toll_fee: fromMoneyResponse(item.toll_fee),
+    parking_fee: fromMoneyResponse(item.parking_fee),
+    stay_cost: fromMoneyResponse(item.stay_cost),
+    others: fromMoneyResponse(item.others),
     expense_notes: item.expense_notes || '',
     status: item.status || 'ACTIVE',
   }
@@ -283,19 +340,23 @@ const submitForm = async () => {
   if (!validateAttachments())
     return
 
+  const moneyPayload = parseMoneyPayload()
+  if (!moneyPayload)
+    return
+
   isSubmitting.value = true
 
-  const payload = buildFormData()
+  const payload = buildFormData(moneyPayload)
 
   try {
     if (!editedItem.value) {
-      showToast('Trip sheet tidak ditemukan untuk diperbarui', 'error')
+      showToast('Surat jalan tidak ditemukan untuk diperbarui', 'error')
       isSubmitting.value = false
       return
     }
 
     await tripSheetService.update(editedItem.value.id, payload)
-    showToast('Trip sheet berhasil diperbarui')
+    showToast('Surat jalan berhasil diperbarui')
 
     isFormDialogOpen.value = false
     await fetchTripSheets()
@@ -333,7 +394,7 @@ onMounted(async () => {
     <VCardItem>
       <template #title>
         <div class="d-flex align-center justify-space-between flex-wrap gap-4">
-          <span class="text-h6">Data Trip Sheet</span>
+          <span class="text-h6">Data Surat Jalan</span>
         </div>
       </template>
     </VCardItem>
@@ -341,7 +402,7 @@ onMounted(async () => {
     <VCardText>
       <VRow>
         <VCol cols="12" md="5">
-          <VTextField v-model="search" label="Cari trip sheet" placeholder="Tujuan / catatan" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" />
+          <VTextField v-model="search" label="Cari surat jalan" placeholder="Tujuan / catatan" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" />
         </VCol>
         <VCol cols="12" md="2">
           <VBtn block class="mt-md-1" color="secondary" @click="onSearch">Cari</VBtn>
@@ -394,7 +455,7 @@ onMounted(async () => {
         </thead>
         <tbody>
           <tr v-if="!isLoading && rows.length === 0">
-            <td colspan="7" class="text-center text-medium-emphasis py-6">Data trip sheet belum ada.</td>
+            <td colspan="7" class="text-center text-medium-emphasis py-6">Data surat jalan belum ada.</td>
           </tr>
           <tr v-for="item in rows" :key="item.id">
             <td class="font-weight-medium">{{ item.orderVehicle?.order?.order_number || '-' }}</td>
@@ -419,7 +480,7 @@ onMounted(async () => {
 
   <VDialog v-model="isFormDialogOpen" max-width="960">
     <VCard>
-      <VCardItem title="Ubah Trip Sheet" />
+      <VCardItem title="Ubah Surat Jalan" />
       <VCardText>
         <VForm @submit.prevent="submitForm">
           <VRow>
@@ -450,62 +511,67 @@ onMounted(async () => {
             <VCol cols="12" md="6"><VSelect v-model="form.status" label="Status" :items="['ACTIVE','INACTIVE']" /></VCol>
             <VCol cols="12" md="3">
               <VTextField
-                v-model.number="form.fuel_cost"
+                v-model="form.fuel_cost"
                 label="Biaya BBM"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                @keydown="blockKeysInvalidNumberMoneyInput"
+                :rules="[moneyFieldRule]"
+                @update:model-value="onMoneyFieldInput('fuel_cost', String($event ?? ''))"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onMoneyFieldPaste('fuel_cost', $event)"
               />
             </VCol>
             <VCol cols="12" md="3">
               <VTextField
-                v-model.number="form.toll_fee"
+                v-model="form.toll_fee"
                 label="Biaya Tol"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                @keydown="blockKeysInvalidNumberMoneyInput"
+                :rules="[moneyFieldRule]"
+                @update:model-value="onMoneyFieldInput('toll_fee', String($event ?? ''))"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onMoneyFieldPaste('toll_fee', $event)"
               />
             </VCol>
             <VCol cols="12" md="3">
               <VTextField
-                v-model.number="form.parking_fee"
+                v-model="form.parking_fee"
                 label="Biaya Parkir"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                @keydown="blockKeysInvalidNumberMoneyInput"
+                :rules="[moneyFieldRule]"
+                @update:model-value="onMoneyFieldInput('parking_fee', String($event ?? ''))"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onMoneyFieldPaste('parking_fee', $event)"
               />
             </VCol>
             <VCol cols="12" md="3">
               <VTextField
-                v-model.number="form.stay_cost"
+                v-model="form.stay_cost"
                 label="Biaya Inap"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                @keydown="blockKeysInvalidNumberMoneyInput"
+                :rules="[moneyFieldRule]"
+                @update:model-value="onMoneyFieldInput('stay_cost', String($event ?? ''))"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onMoneyFieldPaste('stay_cost', $event)"
               />
             </VCol>
             <VCol cols="12" md="3">
               <VTextField
-                v-model.number="form.others"
+                v-model="form.others"
                 label="Biaya lain-lain"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                @keydown="blockKeysInvalidNumberMoneyInput"
+                :rules="[moneyFieldRule]"
+                @update:model-value="onMoneyFieldInput('others', String($event ?? ''))"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onMoneyFieldPaste('others', $event)"
               />
             </VCol>
             <VCol cols="12" md="6">
@@ -557,40 +623,158 @@ onMounted(async () => {
 
   <VDialog v-model="isDetailDialogOpen" max-width="720">
     <VCard>
-      <VCardItem title="Detail Trip Sheet" />
+      <VCardItem title="Detail Surat Jalan" />
       <VCardText>
-        <VTable density="compact">
-          <tbody>
-            <tr><td>Order</td><td class="text-end font-weight-medium">{{ detailItem?.orderVehicle?.order?.order_number || '-' }}</td></tr>
-            <tr><td>Kendaraan</td><td class="text-end">{{ detailItem?.orderVehicle?.vehicle?.plate_number || '-' }}</td></tr>
-            <tr><td>Driver</td><td class="text-end">{{ detailItem?.driver?.name || '-' }}</td></tr>
-            <tr><td>Tujuan</td><td class="text-end">{{ detailItem?.destination || '-' }}</td></tr>
-            <tr><td>BBM</td><td class="text-end">{{ detailItem?.fuel_cost ?? '-' }}</td></tr>
-            <tr><td>Biaya Tol</td><td class="text-end">{{ detailItem?.toll_fee ?? '-' }}</td></tr>
-            <tr><td>Biaya Parkir</td><td class="text-end">{{ detailItem?.parking_fee ?? '-' }}</td></tr>
-            <tr><td>Biaya Inap</td><td class="text-end">{{ detailItem?.stay_cost ?? '-' }}</td></tr>
-            <tr><td>Biaya lain-lain</td><td class="text-end">{{ detailItem?.others ?? '-' }}</td></tr>
-            <tr><td>Catatan</td><td class="text-end">{{ detailItem?.expense_notes || '-' }}</td></tr>
-            <tr>
-              <td>Attachment</td>
-              <td class="text-end">
-                <span v-if="detailAttachmentList.length === 0">-</span>
-                <div v-else class="d-flex flex-column align-end gap-1">
-                  <a v-for="(item, index) in detailAttachmentList" :key="`detail-${index}`" :href="item" target="_blank" rel="noopener">
-                    Lampiran {{ index + 1 }}
-                  </a>
-                </div>
-              </td>
-            </tr>
-            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
-            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
-            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
-          </tbody>
-        </VTable>
+        <VRow>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Order</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailItem?.orderVehicle?.order?.order_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Kendaraan</div>
+                <div class="text-body-1 text-break">{{ detailItem?.orderVehicle?.vehicle?.plate_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Driver</div>
+                <div class="text-body-1 text-break">{{ detailItem?.driver?.name || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Tujuan</div>
+                <div class="text-body-1 text-break">{{ detailItem?.destination || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">BBM</div>
+                <div class="text-body-1 text-break">{{ detailItem?.fuel_cost ?? '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Biaya Tol</div>
+                <div class="text-body-1 text-break">{{ detailItem?.toll_fee ?? '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Biaya Parkir</div>
+                <div class="text-body-1 text-break">{{ detailItem?.parking_fee ?? '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Biaya Inap</div>
+                <div class="text-body-1 text-break">{{ detailItem?.stay_cost ?? '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Biaya Lain-lain</div>
+                <div class="text-body-1 text-break">{{ detailItem?.others ?? '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12">
+            <VCard variant="tonal">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Catatan</div>
+                <div class="text-body-1 text-break">{{ detailItem?.expense_notes || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12">
+            <VCard variant="tonal">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-3">Lampiran Gambar</div>
+                <div v-if="detailAttachmentList.length === 0" class="text-body-2 text-medium-emphasis">Tidak ada lampiran.</div>
+                <VRow v-else>
+                  <VCol
+                    v-for="(item, index) in detailAttachmentList"
+                    :key="`detail-${index}`"
+                    cols="12"
+                    sm="6"
+                    md="4"
+                  >
+                    <VCard variant="outlined" class="h-100">
+                      <VImg :src="item" height="160" cover />
+                      <VCardActions class="justify-space-between">
+                        <VBtn size="small" variant="text" color="primary" @click="openDetailImagePreview(item)">Lihat</VBtn>
+                        <VBtn size="small" variant="text" :href="item" target="_blank" rel="noopener">Buka Tab</VBtn>
+                      </VCardActions>
+                    </VCard>
+                  </VCol>
+                </VRow>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Status</div>
+                <div class="text-body-1 text-break">{{ detailItem?.status || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Dibuat</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Diubah</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+        </VRow>
       </VCardText>
       <VCardActions class="justify-end">
         <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
       </VCardActions>
+    </VCard>
+  </VDialog>
+
+  <VDialog v-model="isImagePreviewDialogOpen" max-width="1000">
+    <VCard>
+      <VCardItem title="Preview Gambar">
+        <template #append>
+          <VBtn icon variant="text" @click="isImagePreviewDialogOpen = false">
+            <VIcon icon="ri-close-line" />
+          </VBtn>
+        </template>
+      </VCardItem>
+      <VCardText>
+        <VImg v-if="selectedPreviewImage" :src="selectedPreviewImage" max-height="75vh" contain />
+      </VCardText>
     </VCard>
   </VDialog>
 

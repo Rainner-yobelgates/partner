@@ -9,7 +9,7 @@ type ClientForm = {
   code: string
   contact_person: string
   phone_number: string
-  email: string
+  // email: string
   address: string
   status: MasterStatus
 }
@@ -40,7 +40,7 @@ const form = ref<ClientForm>({
   code: '',
   contact_person: '',
   phone_number: '',
-  email: '',
+  // email: '',
   address: '',
   status: 'ACTIVE',
 })
@@ -81,7 +81,7 @@ const resetForm = () => {
     code: '',
     contact_person: '',
     phone_number: '',
-    email: '',
+    // email: '',
     address: '',
     status: 'ACTIVE',
   }
@@ -95,7 +95,7 @@ const openEditDialog = (item: ClientItem) => {
     code: item.code || '',
     contact_person: item.contact_person || '',
     phone_number: sanitizePhoneNumber(item.phone_number || ''),
-    email: item.email || '',
+    // email: item.email || '',
     address: item.address || '',
     status: item.status || 'ACTIVE',
   }
@@ -118,7 +118,7 @@ const submitForm = async () => {
     code: form.value.code.trim() || undefined,
     contact_person: form.value.contact_person.trim() || undefined,
     phone_number: sanitizePhoneNumber(form.value.phone_number) || undefined,
-    email: form.value.email.trim() || undefined,
+    // email: form.value.email.trim() || undefined,
     address: form.value.address.trim() || undefined,
     status: form.value.status,
   }
@@ -186,7 +186,7 @@ onMounted(fetchClients)
     </VCardItem>
     <VCardText>
       <VRow>
-        <VCol cols="12" md="5"><VTextField v-model="search" label="Cari client" placeholder="Nama / kode / PIC / email / telepon" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" /></VCol>
+        <VCol cols="12" md="5"><VTextField v-model="search" label="Cari client" placeholder="Nama / kode / PIC / telepon" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" /></VCol>
         <VCol cols="12" md="2"><VBtn block class="mt-md-1" color="secondary" @click="onSearch">Cari</VBtn></VCol>
         <VCol cols="6" md="2"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title: 'Dibuat', value: 'created_at' }, { title: 'Nama', value: 'name' }, { title: 'Diubah', value: 'updated_at' }]" item-title="title" item-value="value" /></VCol>
         <VCol cols="6" md="1"><VSelect v-model="sortOrder" label="Urutan" :items="[{ title: 'DESC', value: 'desc' }, { title: 'ASC', value: 'asc' }]" item-title="title" item-value="value" /></VCol>
@@ -241,7 +241,7 @@ onMounted(fetchClients)
                 @update:model-value="onPhoneInput"
               />
             </VCol>
-            <VCol cols="12" md="6"><VTextField v-model="form.email" label="Email" type="email" /></VCol>
+            <!-- <VCol cols="12" md="6"><VTextField v-model="form.email" label="Email" type="email" /></VCol> -->
             <VCol cols="12" md="6"><VSelect v-model="form.status" label="Status" :items="['ACTIVE', 'INACTIVE']" /></VCol>
             <VCol cols="12"><VTextarea v-model="form.address" label="Alamat" rows="2" /></VCol>
           </VRow>
@@ -259,19 +259,72 @@ onMounted(fetchClients)
     <VCard>
       <VCardItem title="Detail Client" />
       <VCardText>
-        <VTable density="compact">
-          <tbody>
-            <tr><td>Nama</td><td class="text-end font-weight-medium">{{ detailItem?.name || '-' }}</td></tr>
-            <tr><td>Kode</td><td class="text-end">{{ detailItem?.code || '-' }}</td></tr>
-            <tr><td>PIC</td><td class="text-end">{{ detailItem?.contact_person || '-' }}</td></tr>
-            <tr><td>Telepon</td><td class="text-end">{{ detailItem?.phone_number || '-' }}</td></tr>
-            <tr><td>Email</td><td class="text-end">{{ detailItem?.email || '-' }}</td></tr>
-            <tr><td>Alamat</td><td class="text-end">{{ detailItem?.address || '-' }}</td></tr>
-            <tr><td>Status</td><td class="text-end">{{ detailItem?.status || '-' }}</td></tr>
-            <tr><td>Dibuat</td><td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td></tr>
-            <tr><td>Diubah</td><td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td></tr>
-          </tbody>
-        </VTable>
+        <VRow>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Nama</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailItem?.name || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Kode</div>
+                <div class="text-body-1 text-break">{{ detailItem?.code || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">PIC</div>
+                <div class="text-body-1 text-break">{{ detailItem?.contact_person || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Telepon</div>
+                <div class="text-body-1 text-break">{{ detailItem?.phone_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12">
+            <VCard variant="tonal">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Alamat</div>
+                <div class="text-body-1 text-break">{{ detailItem?.address || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Status</div>
+                <div class="text-body-1 text-break">{{ detailItem?.status || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Dibuat</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Diubah</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+        </VRow>
       </VCardText>
       <VCardActions class="justify-end">
         <VBtn variant="text" @click="isDetailDialogOpen = false">Tutup</VBtn>

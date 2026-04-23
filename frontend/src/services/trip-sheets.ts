@@ -8,11 +8,11 @@ export type TripSheetItem = {
   driver_id?: string | null
   assistant_id?: string | null
   destination?: string | null
-  fuel_cost?: number | null
-  toll_fee?: number | null
-  parking_fee?: number | null
-  stay_cost?: number | null
-  others?: number | string | null
+  fuel_cost?: string | null
+  toll_fee?: string | null
+  parking_fee?: string | null
+  stay_cost?: string | null
+  others?: string | null
   expense_notes?: string | null
   attachment?: string | null
   status?: MasterStatus | null
@@ -43,11 +43,11 @@ export type TripSheetPayload = {
   order_vehicle_id: string
   driver_id?: string
   assistant_id?: string
-  fuel_cost?: number
-  toll_fee?: number
-  parking_fee?: number
-  stay_cost?: number
-  others?: number
+  fuel_cost?: string
+  toll_fee?: string
+  parking_fee?: string
+  stay_cost?: string
+  others?: string
   expense_notes?: string
   attachment?: string
   status?: MasterStatus
@@ -56,11 +56,11 @@ export type TripSheetPayload = {
 export type TripSheetPublicPayload = {
   driver_id?: string
   assistant_id?: string
-  fuel_cost?: number
-  toll_fee?: number
-  parking_fee?: number
-  stay_cost?: number
-  others?: number
+  fuel_cost?: string
+  toll_fee?: string
+  parking_fee?: string
+  stay_cost?: string
+  others?: string
   expense_notes?: string
   attachment?: string
   status?: MasterStatus
@@ -168,4 +168,3 @@ export const tripSheetService = {
     })
   },
 }
-

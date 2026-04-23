@@ -429,34 +429,56 @@ onMounted(async () => {
     <VCard>
       <VCardItem title="Detail Pengguna" />
       <VCardText>
-        <VTable density="compact">
-          <tbody>
-            <tr>
-              <td>Username</td>
-              <td class="text-end font-weight-medium">{{ detailItem?.username || '-' }}</td>
-            </tr>
-            <tr>
-              <td>Email</td>
-              <td class="text-end">{{ detailItem?.email || '-' }}</td>
-            </tr>
-            <tr>
-              <td>Peran</td>
-              <td class="text-end">{{ detailItem?.role?.name || '-' }}</td>
-            </tr>
-            <tr>
-              <td>Status</td>
-              <td class="text-end">{{ detailItem?.status || '-' }}</td>
-            </tr>
-            <tr>
-              <td>Dibuat</td>
-              <td class="text-end">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</td>
-            </tr>
-            <tr>
-              <td>Diubah</td>
-              <td class="text-end">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</td>
-            </tr>
-          </tbody>
-        </VTable>
+        <VRow>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Username</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailItem?.username || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Email</div>
+                <div class="text-body-1 text-break">{{ detailItem?.email || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Peran</div>
+                <div class="text-body-1 text-break">{{ detailItem?.role?.name || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Status</div>
+                <div class="text-body-1 text-break">{{ detailItem?.status || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Dibuat</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.created_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Diubah</div>
+                <div class="text-body-1 text-break">{{ detailItem ? formatDate(detailItem.updated_at) : '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+        </VRow>
       </VCardText>
       <VCardActions class="justify-end">
         <VBtn variant="text" @click="isDetailDialogOpen=false">Tutup</VBtn>
@@ -468,6 +490,5 @@ onMounted(async () => {
     {{ snackbar.text }}
   </VSnackbar>
 </template>
-
 
 

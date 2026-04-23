@@ -59,9 +59,9 @@ export class OrderController {
   @Get('recap')
   @Permission('order-recap', 'read')
   @ApiOperation({
-    summary: 'Rekapitulasi pesanan (pemasukan vs pengeluaran trip sheet)',
+    summary: 'Rekapitulasi reservasi (pemasukan vs pengeluaran surat jalan)',
     description:
-      'Daftar pesanan pada bulan/tahun berdasarkan tanggal dibuat, dengan agregasi biaya trip sheet per pesanan.',
+      'Daftar reservasi pada bulan/tahun berdasarkan tanggal dibuat, dengan agregasi biaya surat jalan per reservasi.',
   })
   @ApiQuery({ name: 'month', required: true, example: 4, description: 'Bulan 1–12' })
   @ApiQuery({ name: 'year', required: true, example: 2026, description: 'Tahun' })
@@ -74,7 +74,7 @@ export class OrderController {
   @Permission('order', 'detail')
   @ApiOperation({
     summary: 'Ambil detail order by UUID',
-    description: 'Menampilkan detail satu order beserta kendaraan & trip sheet.',
+    description: 'Menampilkan detail satu order beserta kendaraan & surat jalan.',
   })
   @ApiParam({ name: 'uuid', description: 'UUID order (orders_uuid)', example: '550e8400-e29b-41d4-a716-446655440000' })
   findOne(@Param('uuid') uuid: string) {
@@ -86,7 +86,7 @@ export class OrderController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Buat order baru',
-    description: 'Membuat order baru beserta kendaraan dan generate link trip sheet.',
+    description: 'Membuat order baru beserta kendaraan dan generate link surat jalan.',
   })
   @ApiBody({ type: CreateOrderDto })
   create(@Body() dto: CreateOrderDto, @CurrentUser() user: CurrentUserType) {
