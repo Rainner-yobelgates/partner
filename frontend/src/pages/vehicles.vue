@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ApiError } from '@/services/http'
 import { vehicleMasterService, type MasterStatus, type VehicleItem, type VehicleType } from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
@@ -19,7 +19,7 @@ const total = ref(0)
 const page = ref(1)
 const perPage = ref(10)
 const search = ref('')
-const sortBy = ref<'created_at' | 'plate_number' | 'updated_at'>('created_at')
+const sortBy = ref<'created_at' | 'plate_number'>('created_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const isLoading = ref(false)
 const isFormDialogOpen = ref(false)
@@ -243,8 +243,7 @@ onMounted(fetchVehicles)
             :items="[
               { title: 'Dibuat', value: 'created_at' },
               { title: 'Plat', value: 'plate_number' },
-              { title: 'Diubah', value: 'updated_at' },
-            ]"
+              ]"
             item-title="title"
             item-value="value"
           />
@@ -300,7 +299,7 @@ onMounted(fetchVehicles)
                 {{ item.status || '-' }}
               </VChip>
             </td>
-            <td>{{ formatDate(item.updated_at) }}</td>
+            <td>{{ formatDate(item.created_at) }}</td>
             <td class="text-end">
               <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
               <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
@@ -469,6 +468,7 @@ onMounted(fetchVehicles)
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
+
 
 
 

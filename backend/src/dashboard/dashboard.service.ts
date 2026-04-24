@@ -59,11 +59,12 @@ export class DashboardService {
       };
     }
 
-    const [masterSummary, reportSummary, clientFinancial, orderFinancial] = await Promise.all([
+    const [masterSummary, reportSummary, clientFinancial, orderFinancial, totalFinancial] = await Promise.all([
       this.getMasterSummary(),
       this.getReportSummary(yearStart, yearEnd, year, clientId),
       this.getClientFinancial(yearStart, yearEnd, year, clientId),
       this.getOrderFinancial(yearStart, yearEnd, year),
+      this.getTotalFinancial(yearStart, yearEnd, year, clientId),
     ]);
 
     return {
@@ -82,6 +83,7 @@ export class DashboardService {
         report_summary: reportSummary,
         client_financial: clientFinancial,
         order_financial: orderFinancial,
+        total_financial: totalFinancial,
       },
     };
   }
@@ -379,6 +381,236 @@ export class DashboardService {
         year,
         created_from: yearStart.toISOString(),
         created_to_before: yearEnd.toISOString(),
+      },
+    };
+  }
+
+  private async getTotalFinancial(
+    yearStart: Date,
+    yearEnd: Date,
+    year: number,
+    clientId: bigint | null,
+  ) {
+    const monthlyRevenue = this.createMonthlyDecimals();
+    const monthlyExpense = this.createMonthlyDecimals();
+
+    let revenueContract = new Prisma.Decimal(0);
+    let revenueOrder = new Prisma.Decimal(0);
+
+    let expenseClientAjk = new Prisma.Decimal(0);
+    let expenseOrderReservasi = new Prisma.Decimal(0);
+    let expenseVehicleService = new Prisma.Decimal(0);
+    let expenseFacility = new Prisma.Decimal(0);
+
+    const contracts = await this.prisma.db.contract.findMany({
+      where: {
+        deleted_at: null,
+        contract_year: year,
+        ...(clientId ? { client_id: clientId } : {}),
+      },
+      select: {
+        contract_month: true,
+        contract_value: true,
+      },
+    });
+
+    for (const contract of contracts) {
+      const monthIndex = contract.contract_month - 1;
+      if (monthIndex < 0 || monthIndex > 11)
+        continue;
+
+      const value = this.asDecimal(contract.contract_value);
+      monthlyRevenue[monthIndex] = monthlyRevenue[monthIndex].add(value);
+      revenueContract = revenueContract.add(value);
+    }
+
+    const orders = await this.prisma.db.order.findMany({
+      where: {
+        deleted_at: null,
+        created_at: {
+          gte: yearStart,
+          lt: yearEnd,
+        },
+      },
+      select: {
+        created_at: true,
+        total_amount: true,
+      },
+    });
+
+    for (const order of orders) {
+      const monthIndex = order.created_at.getUTCMonth();
+      const value = this.asDecimal(order.total_amount);
+      monthlyRevenue[monthIndex] = monthlyRevenue[monthIndex].add(value);
+      revenueOrder = revenueOrder.add(value);
+    }
+
+    const shuttles = await this.prisma.db.shuttle.findMany({
+      where: {
+        deleted_at: null,
+        ...(clientId ? { client_id: clientId } : {}),
+        scheduled_date: {
+          not: null,
+          gte: yearStart,
+          lt: yearEnd,
+        },
+      },
+      select: {
+        scheduled_date: true,
+        crew_incentive: true,
+        fuel: true,
+        toll_fee: true,
+        others: true,
+      },
+    });
+
+    for (const shuttle of shuttles) {
+      if (!shuttle.scheduled_date)
+        continue;
+
+      const monthIndex = shuttle.scheduled_date.getUTCMonth();
+      const total = this
+        .asDecimal(shuttle.crew_incentive)
+        .add(this.asDecimal(shuttle.fuel))
+        .add(this.asDecimal(shuttle.toll_fee))
+        .add(this.asDecimal(shuttle.others));
+
+      monthlyExpense[monthIndex] = monthlyExpense[monthIndex].add(total);
+      expenseClientAjk = expenseClientAjk.add(total);
+    }
+
+    const tripSheets = await this.prisma.db.tripSheet.findMany({
+      where: {
+        deleted_at: null,
+        orderVehicle: {
+          deleted_at: null,
+          order: {
+            deleted_at: null,
+            created_at: {
+              gte: yearStart,
+              lt: yearEnd,
+            },
+          },
+        },
+      },
+      select: {
+        fuel_cost: true,
+        toll_fee: true,
+        parking_fee: true,
+        stay_cost: true,
+        others: true,
+        orderVehicle: {
+          select: {
+            order: {
+              select: {
+                created_at: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    for (const tripSheet of tripSheets) {
+      const orderCreatedAt = tripSheet.orderVehicle?.order?.created_at;
+      if (!orderCreatedAt)
+        continue;
+
+      const monthIndex = orderCreatedAt.getUTCMonth();
+      const total = this
+        .asDecimal(tripSheet.fuel_cost)
+        .add(this.asDecimal(tripSheet.toll_fee))
+        .add(this.asDecimal(tripSheet.parking_fee))
+        .add(this.asDecimal(tripSheet.stay_cost))
+        .add(this.asDecimal(tripSheet.others));
+
+      monthlyExpense[monthIndex] = monthlyExpense[monthIndex].add(total);
+      expenseOrderReservasi = expenseOrderReservasi.add(total);
+    }
+
+    const vehicleServices = await this.prisma.db.vehicleService.findMany({
+      where: {
+        deleted_at: null,
+        OR: [
+          {
+            service_date: {
+              not: null,
+              gte: yearStart,
+              lt: yearEnd,
+            },
+          },
+          {
+            service_date: null,
+            created_at: {
+              gte: yearStart,
+              lt: yearEnd,
+            },
+          },
+        ],
+      },
+      select: {
+        service_date: true,
+        created_at: true,
+        cost: true,
+      },
+    });
+
+    for (const service of vehicleServices) {
+      const referenceDate = service.service_date ?? service.created_at;
+      const monthIndex = referenceDate.getUTCMonth();
+      const value = this.asDecimal(service.cost);
+
+      monthlyExpense[monthIndex] = monthlyExpense[monthIndex].add(value);
+      expenseVehicleService = expenseVehicleService.add(value);
+    }
+
+    const facilities = await this.prisma.db.facility.findMany({
+      where: {
+        deleted_at: null,
+        created_at: {
+          gte: yearStart,
+          lt: yearEnd,
+        },
+      },
+      select: {
+        created_at: true,
+        cost: true,
+      },
+    });
+
+    for (const facility of facilities) {
+      const monthIndex = facility.created_at.getUTCMonth();
+      const value = this.asDecimal(facility.cost);
+
+      monthlyExpense[monthIndex] = monthlyExpense[monthIndex].add(value);
+      expenseFacility = expenseFacility.add(value);
+    }
+
+    const monthly = this.buildMonthlyBuckets(monthlyRevenue, monthlyExpense);
+    const totals = this.calculateTotals(monthlyRevenue, monthlyExpense);
+
+    return {
+      monthly,
+      totals,
+      revenue_breakdown: {
+        contract: decimalToMoneyString(revenueContract),
+        reservasi: decimalToMoneyString(revenueOrder),
+        total: decimalToMoneyString(revenueContract.add(revenueOrder)),
+      },
+      expense_breakdown: {
+        client_ajk: decimalToMoneyString(expenseClientAjk),
+        reservasi: decimalToMoneyString(expenseOrderReservasi),
+        vehicle_service: decimalToMoneyString(expenseVehicleService),
+        facility: decimalToMoneyString(expenseFacility),
+        total: decimalToMoneyString(
+          expenseClientAjk.add(expenseOrderReservasi).add(expenseVehicleService).add(expenseFacility),
+        ),
+      },
+      filter: {
+        year,
+        year_from: yearStart.toISOString(),
+        year_to_before: yearEnd.toISOString(),
+        client_id: clientId ? clientId.toString() : null,
       },
     };
   }

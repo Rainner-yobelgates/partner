@@ -6,6 +6,7 @@ import {
   type ContractRecapRow,
 } from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
+import { formatRupiah, formatRupiahPlain } from '@/utils/currency'
 
 const authStore = useAuthStore()
 const canRecapRead = computed(() => authStore.hasPermission('client-recap:read'))
@@ -14,6 +15,8 @@ const now = new Date()
 const selectedClientId = ref<string | null>(null)
 const month = ref(now.getMonth() + 1)
 const year = ref(now.getFullYear())
+const startDate = ref('')
+const endDate = ref('')
 
 const monthItems = [
   { title: 'Januari', value: 1 },
@@ -58,13 +61,9 @@ const getErrorMessage = (error: unknown) => {
 }
 
 const formatMoneyId = (value?: string | null) => {
-  if (value == null || value === '')
-    return '-'
-  const n = Number(value)
-  if (!Number.isFinite(n))
-    return value
-  return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  return formatRupiah(value)
 }
+const formatMoneyTable = (value?: string | null) => formatRupiahPlain(value)
 
 const formatDate = (value?: string | null) => {
   if (!value)
@@ -110,7 +109,13 @@ const fetchRecap = async () => {
 
   isLoading.value = true
   try {
-    const res = await contractRecapService.recap(selectedClientId.value, month.value, year.value)
+    const res = await contractRecapService.recap(
+      selectedClientId.value,
+      month.value,
+      year.value,
+      startDate.value || undefined,
+      endDate.value || undefined,
+    )
     recapRow.value = res.data
   }
   catch (error) {
@@ -157,7 +162,7 @@ onMounted(async () => {
 
     <VCardText v-if="canRecapRead">
       <VRow align="end">
-        <VCol cols="12" md="4">
+        <VCol cols="12" md="3">
           <VSelect
             v-model="selectedClientId"
             label="Client"
@@ -170,7 +175,7 @@ onMounted(async () => {
             </template>
           </VSelect>
         </VCol>
-        <VCol cols="12" sm="6" md="3">
+        <VCol cols="12" sm="6" md="2">
           <VSelect
             v-model="month"
             label="Bulan"
@@ -188,7 +193,21 @@ onMounted(async () => {
             item-value="value"
           />
         </VCol>
-        <VCol cols="12" md="3">
+        <VCol cols="12" sm="6" md="2">
+          <VTextField
+            v-model="startDate"
+            label="Start Date (Created)"
+            type="date"
+          />
+        </VCol>
+        <VCol cols="12" sm="6" md="2">
+          <VTextField
+            v-model="endDate"
+            label="End Date (Created)"
+            type="date"
+          />
+        </VCol>
+        <VCol cols="12" md="1">
           <VBtn
             color="primary"
             block
@@ -201,6 +220,9 @@ onMounted(async () => {
           </VBtn>
         </VCol>
       </VRow>
+      <p v-if="recapRow?.filter?.created_from || recapRow?.filter?.created_to_before" class="text-caption text-medium-emphasis mt-2 mb-0">
+        Filter created_at: {{ recapRow?.filter?.created_from || '-' }} - sebelum {{ recapRow?.filter?.created_to_before || '-' }}
+      </p>
     </VCardText>
 
     <VCardText v-else>
@@ -260,11 +282,11 @@ onMounted(async () => {
                   {{ shuttle.status || '-' }}
                 </VChip>
               </td>
-              <td class="text-end">{{ formatMoneyId(shuttle.crew_incentive) }}</td>
-              <td class="text-end">{{ formatMoneyId(shuttle.fuel) }}</td>
-              <td class="text-end">{{ formatMoneyId(shuttle.toll_fee) }}</td>
-              <td class="text-end">{{ formatMoneyId(shuttle.others) }}</td>
-              <td class="text-end">{{ formatMoneyId(shuttle.total_cost) }}</td>
+              <td class="text-end">{{ formatMoneyTable(shuttle.crew_incentive) }}</td>
+              <td class="text-end">{{ formatMoneyTable(shuttle.fuel) }}</td>
+              <td class="text-end">{{ formatMoneyTable(shuttle.toll_fee) }}</td>
+              <td class="text-end">{{ formatMoneyTable(shuttle.others) }}</td>
+              <td class="text-end">{{ formatMoneyTable(shuttle.total_cost) }}</td>
             </tr>
           </tbody>
         </VTable>

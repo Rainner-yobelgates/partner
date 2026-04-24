@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ApiError } from '@/services/http'
 import {
   vehicleMasterService,
@@ -14,6 +14,7 @@ import {
   onPasteSanitizedDecimalMoney,
   parseOptionalApiDecimalMoney,
 } from '@/utils/money-input'
+import { formatRupiah, formatRupiahPlain } from '@/utils/currency'
 
 type VehicleServiceForm = {
   vehicle_id: string
@@ -30,7 +31,7 @@ const total = ref(0)
 const page = ref(1)
 const perPage = ref(10)
 const search = ref('')
-const sortBy = ref<'service_date' | 'created_at' | 'updated_at'>('service_date')
+const sortBy = ref<'service_date' | 'created_at'>('service_date')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -63,6 +64,8 @@ const vehicleOptions = computed(() => vehicles.value.map(item => ({ title: item.
 const showToast = (text: string, color: 'success' | 'error' = 'success') => { snackbar.value = { show: true, color, text } }
 const getErrorMessage = (error: unknown) => error instanceof ApiError ? error.message : 'Terjadi kesalahan. Silakan coba lagi.'
 const formatDate = (value?: string | null) => value ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '-'
+const formatMoneyId = (value?: string | null) => formatRupiah(value)
+const formatMoneyTable = (value?: string | null) => formatRupiahPlain(value)
 const toIsoDate = (value: string) => value ? new Date(value).toISOString() : undefined
 const fromIsoToInputDate = (value?: string | null) => value ? new Date(value).toISOString().slice(0, 16) : ''
 
@@ -199,7 +202,7 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
       <VRow>
         <VCol cols="12" md="5"><VTextField v-model="search" label="Cari pemeliharaan" placeholder="Deskripsi" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" /></VCol>
         <VCol cols="12" md="2"><VBtn block class="mt-md-1" color="secondary" @click="onSearch">Cari</VBtn></VCol>
-        <VCol cols="6" md="2"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title:'Tanggal Servis', value:'service_date'},{ title:'Dibuat', value:'created_at'},{ title:'Diubah', value:'updated_at'}]" item-title="title" item-value="value" /></VCol>
+        <VCol cols="6" md="2"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title:'Tanggal Servis', value:'service_date'},{ title:'Dibuat', value:'created_at'},]" item-title="title" item-value="value" /></VCol>
         <VCol cols="6" md="1"><VSelect v-model="sortOrder" label="Urutan" :items="[{ title:'DESC', value:'desc'},{ title:'ASC', value:'asc'}]" item-title="title" item-value="value" /></VCol>
         <VCol cols="12" md="2"><VSelect v-model="perPage" label="Per halaman" :items="[10,20,50]" /></VCol>
       </VRow>
@@ -217,7 +220,7 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
             <td>{{ item.vehicle?.plate_number || '-' }}</td>
             <td>{{ formatDate(item.service_date) }}</td>
             <td>{{ item.service_type || '-' }}</td>
-            <td>{{ item.cost ?? '-' }}</td>
+            <td>{{ formatMoneyTable(item.cost) }}</td>
             <td>{{ item.description || '-' }}</td>
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
             <td class="text-end">
@@ -302,7 +305,7 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
             <VCard variant="tonal" class="h-100">
               <VCardText>
                 <div class="text-caption text-medium-emphasis mb-1">Biaya</div>
-                <div class="text-body-1 text-break">{{ detailItem?.cost ?? '-' }}</div>
+                <div class="text-body-1 text-break">{{ formatMoneyId(detailItem?.cost) }}</div>
               </VCardText>
             </VCard>
           </VCol>
@@ -348,3 +351,4 @@ onMounted(async () => { await fetchVehicles(); await fetchVehicleServices() })
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
+

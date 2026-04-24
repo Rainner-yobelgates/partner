@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ApiError } from '@/services/http'
 import { tripSheetService, type TripSheetItem } from '@/services/trip-sheets'
 import { driverMasterService, type DriverItem, type MasterStatus } from '@/services/masters'
@@ -9,6 +9,7 @@ import {
   parseOptionalApiDecimalMoney,
   sanitizeDecimalMoneyInput,
 } from '@/utils/money-input'
+import { formatRupiah } from '@/utils/currency'
 
 type TripSheetForm = {
   order_vehicle_id: string
@@ -36,7 +37,7 @@ const total = ref(0)
 const page = ref(1)
 const perPage = ref(10)
 const search = ref('')
-const sortBy = ref<'created_at' | 'updated_at'>('created_at')
+const sortBy = ref<'created_at'>('created_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const isLoading = ref(false)
 const isDriverOptionsLoading = ref(false)
@@ -125,6 +126,7 @@ const formatDate = (value?: string | null) => {
     timeStyle: 'short',
   }).format(new Date(value))
 }
+const formatMoneyId = (value?: string | null) => formatRupiah(value)
 
 const parseAttachmentValue = (value?: string | null) => {
   if (!value)
@@ -413,8 +415,7 @@ onMounted(async () => {
             label="Urutkan"
             :items="[
               { title: 'Dibuat', value: 'created_at' },
-              { title: 'Diubah', value: 'updated_at' },
-            ]"
+              ]"
             item-title="title"
             item-value="value"
           />
@@ -449,7 +450,7 @@ onMounted(async () => {
             <th>Driver</th>
             <th>Tujuan</th>
             <th>Status</th>
-            <th>Diubah Pada</th>
+            <th>Dibuat Pada</th>
             <th class="text-end">Aksi</th>
           </tr>
         </thead>
@@ -463,7 +464,7 @@ onMounted(async () => {
             <td>{{ item.driver?.name || '-' }}</td>
             <td>{{ item.destination || '-' }}</td>
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
-            <td>{{ formatDate(item.updated_at) }}</td>
+            <td>{{ formatDate(item.created_at) }}</td>
             <td class="text-end">
               <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
               <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
@@ -662,7 +663,7 @@ onMounted(async () => {
             <VCard variant="tonal" class="h-100">
               <VCardText>
                 <div class="text-caption text-medium-emphasis mb-1">BBM</div>
-                <div class="text-body-1 text-break">{{ detailItem?.fuel_cost ?? '-' }}</div>
+                <div class="text-body-1 text-break">{{ formatMoneyId(detailItem?.fuel_cost) }}</div>
               </VCardText>
             </VCard>
           </VCol>
@@ -670,7 +671,7 @@ onMounted(async () => {
             <VCard variant="tonal" class="h-100">
               <VCardText>
                 <div class="text-caption text-medium-emphasis mb-1">Biaya Tol</div>
-                <div class="text-body-1 text-break">{{ detailItem?.toll_fee ?? '-' }}</div>
+                <div class="text-body-1 text-break">{{ formatMoneyId(detailItem?.toll_fee) }}</div>
               </VCardText>
             </VCard>
           </VCol>
@@ -678,7 +679,7 @@ onMounted(async () => {
             <VCard variant="tonal" class="h-100">
               <VCardText>
                 <div class="text-caption text-medium-emphasis mb-1">Biaya Parkir</div>
-                <div class="text-body-1 text-break">{{ detailItem?.parking_fee ?? '-' }}</div>
+                <div class="text-body-1 text-break">{{ formatMoneyId(detailItem?.parking_fee) }}</div>
               </VCardText>
             </VCard>
           </VCol>
@@ -686,7 +687,7 @@ onMounted(async () => {
             <VCard variant="tonal" class="h-100">
               <VCardText>
                 <div class="text-caption text-medium-emphasis mb-1">Biaya Inap</div>
-                <div class="text-body-1 text-break">{{ detailItem?.stay_cost ?? '-' }}</div>
+                <div class="text-body-1 text-break">{{ formatMoneyId(detailItem?.stay_cost) }}</div>
               </VCardText>
             </VCard>
           </VCol>
@@ -694,7 +695,7 @@ onMounted(async () => {
             <VCard variant="tonal" class="h-100">
               <VCardText>
                 <div class="text-caption text-medium-emphasis mb-1">Biaya Lain-lain</div>
-                <div class="text-body-1 text-break">{{ detailItem?.others ?? '-' }}</div>
+                <div class="text-body-1 text-break">{{ formatMoneyId(detailItem?.others) }}</div>
               </VCardText>
             </VCard>
           </VCol>
@@ -780,3 +781,4 @@ onMounted(async () => {
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
+

@@ -8,9 +8,11 @@ import {
   type DashboardMonthlyFinancial,
   type DashboardOrderFinancial,
   type DashboardReportSummary,
+  type DashboardTotalFinancial,
 } from '@/services/dashboard'
 import { clientMasterService, type ClientItem } from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
+import { formatRupiah, formatRupiahPlain } from '@/utils/currency'
 
 const authStore = useAuthStore()
 const vuetifyTheme = useTheme()
@@ -24,6 +26,7 @@ const masterSnapshot = ref<DashboardMasterSummary | null>(null)
 const reportSummary = ref<DashboardReportSummary | null>(null)
 const clientFinancial = ref<DashboardClientFinancial | null>(null)
 const orderFinancial = ref<DashboardOrderFinancial | null>(null)
+const totalFinancial = ref<DashboardTotalFinancial | null>(null)
 
 const isLoading = ref(false)
 const isInitialized = ref(false)
@@ -60,13 +63,9 @@ const toNumber = (value?: string | null) => {
 }
 
 const formatMoneyId = (value?: string | number | null) => {
-  if (value == null || value === '')
-    return '-'
-  const n = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(n))
-    return String(value)
-  return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  return formatRupiah(value)
 }
+const formatMoneyTable = (value?: string | number | null) => formatRupiahPlain(value)
 
 const formatCompactMoneyId = (value?: string | number | null) => {
   if (value == null || value === '')
@@ -74,7 +73,7 @@ const formatCompactMoneyId = (value?: string | number | null) => {
   const n = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(n))
     return String(value)
-  return new Intl.NumberFormat('id-ID', { notation: 'compact', maximumFractionDigits: 1 }).format(n)
+  return `Rp. ${new Intl.NumberFormat('id-ID', { notation: 'compact', maximumFractionDigits: 1 }).format(n)}`
 }
 
 const getErrorMessage = (error: unknown) => {
@@ -154,6 +153,7 @@ const orderChartSeries = computed(() => {
 
 const clientChartOptions = computed(() => buildFinancialChartOptions(clientFinancial.value?.monthly ?? []))
 const orderChartOptions = computed(() => buildFinancialChartOptions(orderFinancial.value?.monthly ?? []))
+const totalChartOptions = computed(() => buildFinancialChartOptions(totalFinancial.value?.monthly ?? []))
 
 const clientExpenseRows = computed(() => {
   const breakdown = clientFinancial.value?.expense_breakdown
@@ -182,6 +182,39 @@ const orderExpenseRows = computed(() => {
   ]
 })
 
+const totalChartSeries = computed(() => {
+  const rows = totalFinancial.value?.monthly ?? []
+  return [
+    { name: 'Pendapatan', type: 'column', data: rows.map(row => toNumber(row.revenue)) },
+    { name: 'Pengeluaran', type: 'column', data: rows.map(row => toNumber(row.expense)) },
+    { name: 'Profit', type: 'line', data: rows.map(row => toNumber(row.profit)) },
+  ]
+})
+
+const totalRevenueRows = computed(() => {
+  const breakdown = totalFinancial.value?.revenue_breakdown
+  if (!breakdown)
+    return []
+  return [
+    { label: 'Pendapatan Kontrak', value: breakdown.contract },
+    { label: 'Pendapatan Reservasi', value: breakdown.reservasi },
+    { label: 'Total Pendapatan', value: breakdown.total },
+  ]
+})
+
+const totalExpenseRows = computed(() => {
+  const breakdown = totalFinancial.value?.expense_breakdown
+  if (!breakdown)
+    return []
+  return [
+    { label: 'Pengeluaran AJK / Antar Jemput Karyawan', value: breakdown.client_ajk },
+    { label: 'Pengeluaran Reservasi', value: breakdown.reservasi },
+    { label: 'Pengeluaran Layanan Service', value: breakdown.vehicle_service },
+    { label: 'Pengeluaran Fasilitas', value: breakdown.facility },
+    { label: 'Total Pengeluaran', value: breakdown.total },
+  ]
+})
+
 let activeFetchToken = 0
 const fetchDashboard = async () => {
   const fetchToken = ++activeFetchToken
@@ -198,6 +231,7 @@ const fetchDashboard = async () => {
     reportSummary.value = response.data.report_summary
     clientFinancial.value = response.data.client_financial
     orderFinancial.value = response.data.order_financial
+    totalFinancial.value = response.data.total_financial
   }
   catch (error) {
     if (fetchToken !== activeFetchToken)
@@ -207,6 +241,7 @@ const fetchDashboard = async () => {
     reportSummary.value = null
     clientFinancial.value = null
     orderFinancial.value = null
+    totalFinancial.value = null
   }
   finally {
     if (fetchToken === activeFetchToken)
@@ -299,7 +334,7 @@ onMounted(async () => {
         <VCardItem title="Filter Tahun">
           <template #subtitle>
             <span class="text-body-2 text-medium-emphasis">
-              Berlaku untuk Report Tahunan, Finansial Klien, dan Rekap Reservasi.
+              Berlaku untuk Report Tahunan, Finansial Klien, Rekap Reservasi, dan Total Keuangan.
             </span>
           </template>
         </VCardItem>
@@ -329,7 +364,7 @@ onMounted(async () => {
         <VCardItem title="Filter Client (Khusus Klien)">
           <template #subtitle>
             <span class="text-body-2 text-medium-emphasis">
-              Hanya memengaruhi Report Tahunan dan Finansial Klien.
+              Hanya memengaruhi Report Tahunan, Finansial Klien, dan porsi klien di Total Keuangan.
             </span>
           </template>
         </VCardItem>
@@ -396,10 +431,10 @@ onMounted(async () => {
 
     <VCol cols="12" xl="6">
       <VCard>
-        <VCardItem title="Finansial Klien (Kontrak vs Klien)">
+        <VCardItem title="Finansial AJK (Antar Jemput Karyawan)">
           <template #subtitle>
             <span class="text-body-2 text-medium-emphasis">
-              Pendapatan dari kontrak, pengeluaran dari antar jemput.
+              Pendapatan dari kontrak, pengeluaran dari AJK / antar jemput karyawan.
             </span>
           </template>
         </VCardItem>
@@ -430,12 +465,12 @@ onMounted(async () => {
 
           <VDivider class="my-4" />
 
-          <div class="text-subtitle-2 mb-2">Breakdown Pengeluaran Klien</div>
+          <div class="text-subtitle-2 mb-2">Breakdown Pengeluaran AJK / Antar Jemput Karyawan</div>
           <VTable density="compact">
             <tbody>
               <tr v-for="row in clientExpenseRows" :key="row.label">
                 <td class="text-medium-emphasis">{{ row.label }}</td>
-                <td class="text-end">{{ formatMoneyId(row.value) }}</td>
+                <td class="text-end">{{ formatMoneyTable(row.value) }}</td>
               </tr>
             </tbody>
           </VTable>
@@ -445,10 +480,10 @@ onMounted(async () => {
 
     <VCol cols="12" xl="6">
       <VCard>
-        <VCardItem title="Order Section (Rekap Reservasi)">
+        <VCardItem title="Finansial Reservasi">
           <template #subtitle>
             <span class="text-body-2 text-medium-emphasis">
-              Pendapatan dari reservasi, pengeluaran dari surat jalan (tanpa filter client).
+              Pendapatan dari reservasi, pengeluaran dari surat jalan.
             </span>
           </template>
         </VCardItem>
@@ -486,10 +521,74 @@ onMounted(async () => {
             <tbody>
               <tr v-for="row in orderExpenseRows" :key="row.label">
                 <td class="text-medium-emphasis">{{ row.label }}</td>
-                <td class="text-end">{{ formatMoneyId(row.value) }}</td>
+                <td class="text-end">{{ formatMoneyTable(row.value) }}</td>
               </tr>
             </tbody>
           </VTable>
+        </VCardText>
+      </VCard>
+    </VCol>
+
+    <VCol cols="12">
+      <VCard>
+        <VCardItem title="Total Keuangan">
+          <template #subtitle>
+            <span class="text-body-2 text-medium-emphasis">
+              Pendapatan dari kontrak dan reservasi. Pengeluaran dari AJK/reservasi, layanan service, dan fasilitas.
+            </span>
+          </template>
+        </VCardItem>
+        <VCardText>
+          <VRow class="mb-2">
+            <VCol cols="12" md="4">
+              <div class="text-caption text-medium-emphasis">Total Pendapatan</div>
+              <div class="text-h6">{{ formatMoneyId(totalFinancial?.totals.total_revenue) }}</div>
+            </VCol>
+            <VCol cols="12" md="4">
+              <div class="text-caption text-medium-emphasis">Total Pengeluaran</div>
+              <div class="text-h6">{{ formatMoneyId(totalFinancial?.totals.total_expense) }}</div>
+            </VCol>
+            <VCol cols="12" md="4">
+              <div class="text-caption text-medium-emphasis">Total Profit</div>
+              <div class="text-h6" :class="profitClass(totalFinancial?.totals.total_profit || null)">
+                {{ formatMoneyId(totalFinancial?.totals.total_profit) }}
+              </div>
+            </VCol>
+          </VRow>
+
+          <VueApexCharts
+            type="line"
+            height="300"
+            :options="totalChartOptions"
+            :series="totalChartSeries"
+          />
+
+          <VDivider class="my-4" />
+
+          <VRow>
+            <VCol cols="12" md="6">
+              <div class="text-subtitle-2 mb-2">Breakdown Pendapatan</div>
+              <VTable density="compact">
+                <tbody>
+                  <tr v-for="row in totalRevenueRows" :key="row.label">
+                    <td class="text-medium-emphasis">{{ row.label }}</td>
+                    <td class="text-end">{{ formatMoneyTable(row.value) }}</td>
+                  </tr>
+                </tbody>
+              </VTable>
+            </VCol>
+            <VCol cols="12" md="6">
+              <div class="text-subtitle-2 mb-2">Breakdown Pengeluaran</div>
+              <VTable density="compact">
+                <tbody>
+                  <tr v-for="row in totalExpenseRows" :key="row.label">
+                    <td class="text-medium-emphasis">{{ row.label }}</td>
+                    <td class="text-end">{{ formatMoneyTable(row.value) }}</td>
+                  </tr>
+                </tbody>
+              </VTable>
+            </VCol>
+          </VRow>
         </VCardText>
       </VCard>
     </VCol>

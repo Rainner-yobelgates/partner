@@ -495,7 +495,13 @@ export class ContractService {
     }
   }
 
-  async recapByClientMonthYear(clientIdInput: string, monthInput: number, yearInput: number) {
+  async recapByClientMonthYear(
+    clientIdInput: string,
+    monthInput: number,
+    yearInput: number,
+    dateFromInput?: string,
+    dateToInput?: string,
+  ) {
     try {
       if (!Number.isInteger(monthInput) || monthInput < 1 || monthInput > 12) {
         throw new BadRequestException({
@@ -524,12 +530,32 @@ export class ContractService {
         });
       }
 
+      const y = yearInput;
+      const m = monthInput;
+      const periodStart = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0, 0));
+      const periodEndExclusive = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0));
+      const createdFrom = dateFromInput ? this.parseDateFromInput(dateFromInput) : null;
+      const createdToExclusive = dateToInput ? this.parseDateToExclusiveInput(dateToInput) : null;
+      if (createdFrom && createdToExclusive && createdToExclusive <= createdFrom) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Rentang created_at tidak valid: date_to harus lebih besar dari date_from',
+        });
+      }
+      const createdAtFilter = (createdFrom || createdToExclusive)
+        ? {
+            ...(createdFrom && { gte: createdFrom }),
+            ...(createdToExclusive && { lt: createdToExclusive }),
+          }
+        : undefined;
+
       const contract = await this.prisma.db.contract.findFirst({
         where: {
           client_id: clientId,
           contract_month: monthInput,
           contract_year: yearInput,
           deleted_at: null,
+          ...(createdAtFilter && { created_at: createdAtFilter }),
         },
         orderBy: [{ status: 'asc' }, { created_at: 'desc' }],
         select: {
@@ -542,11 +568,6 @@ export class ContractService {
         },
       });
 
-      const y = yearInput;
-      const m = monthInput;
-      const periodStart = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0, 0));
-      const periodEndExclusive = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0));
-
       const shuttles = await this.prisma.db.shuttle.findMany({
         where: {
           client_id: clientId,
@@ -556,6 +577,7 @@ export class ContractService {
             gte: periodStart,
             lt: periodEndExclusive,
           },
+          ...(createdAtFilter && { created_at: createdAtFilter }),
         },
         orderBy: { scheduled_date: 'asc' },
         select: {
@@ -662,6 +684,8 @@ export class ContractService {
           filter: {
             scheduled_from: periodStart.toISOString(),
             scheduled_to_before: periodEndExclusive.toISOString(),
+            created_from: createdFrom?.toISOString() ?? null,
+            created_to_before: createdToExclusive?.toISOString() ?? null,
           },
         },
       };
@@ -670,6 +694,39 @@ export class ContractService {
         throw error;
       return this.handleError(error);
     }
+  }
+
+  private parseDateFromInput(raw: string): Date {
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+    const date = dateOnly ? new Date(`${raw}T00:00:00.000Z`) : new Date(raw);
+
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException({
+        success: false,
+        message: 'date_from tidak valid',
+      });
+    }
+
+    return date;
+  }
+
+  private parseDateToExclusiveInput(raw: string): Date {
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+    const date = dateOnly ? new Date(`${raw}T00:00:00.000Z`) : new Date(raw);
+
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException({
+        success: false,
+        message: 'date_to tidak valid',
+      });
+    }
+
+    if (dateOnly) {
+      date.setUTCDate(date.getUTCDate() + 1);
+      return date;
+    }
+
+    return date;
   }
 
   private serializeContract(contract: any) {
@@ -697,4 +754,3 @@ export class ContractService {
     return { success: false, message: 'Operation failed', error: 'Unknown error' };
   }
 }
-

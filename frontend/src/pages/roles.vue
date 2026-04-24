@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { roleMasterService, type MasterStatus, type RoleItem } from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/services/http'
@@ -14,7 +14,7 @@ const total = ref(0)
 const page = ref(1)
 const perPage = ref(10)
 const search = ref('')
-const sortBy = ref<'created_at' | 'name' | 'updated_at'>('created_at')
+const sortBy = ref<'created_at' | 'name'>('created_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const isLoading = ref(false)
 
@@ -258,8 +258,7 @@ onMounted(fetchRoles)
             :items="[
               { title: 'Dibuat', value: 'created_at' },
               { title: 'Nama', value: 'name' },
-              { title: 'Diubah', value: 'updated_at' },
-            ]"
+              ]"
             item-title="title"
             item-value="value"
           />
@@ -308,7 +307,7 @@ onMounted(fetchRoles)
             <th>Nama</th>
             <th>Deskripsi</th>
             <th>Status</th>
-            <th>Diubah Pada</th>
+            <th>Dibuat Pada</th>
             <th class="text-end">
               Aksi
             </th>
@@ -340,7 +339,7 @@ onMounted(fetchRoles)
                 {{ item.status }}
               </VChip>
             </td>
-            <td>{{ formatDate(item.updated_at) }}</td>
+            <td>{{ formatDate(item.created_at) }}</td>
             <td class="text-end">
               <VBtn
                 v-if="canDetail"
@@ -531,5 +530,6 @@ onMounted(fetchRoles)
     {{ snackbar.text }}
   </VSnackbar>
 </template>
+
 
 

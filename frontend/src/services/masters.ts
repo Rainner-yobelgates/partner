@@ -327,6 +327,8 @@ export type ContractRecapRow = {
   filter: {
     scheduled_from: string
     scheduled_to_before: string
+    created_from?: string | null
+    created_to_before?: string | null
   }
 }
 
@@ -355,12 +357,16 @@ export const contractRecapService = {
   clients() {
     return request<ContractRecapClientOptionsResponse>('/contracts/recap/clients')
   },
-  recap(clientId: string, month: number, year: number) {
+  recap(clientId: string, month: number, year: number, dateFrom?: string, dateTo?: string) {
     const params = new URLSearchParams({
       client_id: clientId,
       month: String(month),
       year: String(year),
     })
+    if (dateFrom)
+      params.set('date_from', dateFrom)
+    if (dateTo)
+      params.set('date_to', dateTo)
     return request<ContractRecapResponse>(`/contracts/recap?${params.toString()}`)
   },
 }

@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ApiError } from '@/services/http'
 import { clientMasterService, type ClientItem, type MasterStatus } from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
@@ -19,7 +19,7 @@ const total = ref(0)
 const page = ref(1)
 const perPage = ref(10)
 const search = ref('')
-const sortBy = ref<'created_at' | 'name' | 'updated_at'>('created_at')
+const sortBy = ref<'created_at' | 'name'>('created_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -188,7 +188,7 @@ onMounted(fetchClients)
       <VRow>
         <VCol cols="12" md="5"><VTextField v-model="search" label="Cari client" placeholder="Nama / kode / PIC / telepon" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" /></VCol>
         <VCol cols="12" md="2"><VBtn block class="mt-md-1" color="secondary" @click="onSearch">Cari</VBtn></VCol>
-        <VCol cols="6" md="2"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title: 'Dibuat', value: 'created_at' }, { title: 'Nama', value: 'name' }, { title: 'Diubah', value: 'updated_at' }]" item-title="title" item-value="value" /></VCol>
+        <VCol cols="6" md="2"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title: 'Dibuat', value: 'created_at' }, { title: 'Nama', value: 'name' }, ]" item-title="title" item-value="value" /></VCol>
         <VCol cols="6" md="1"><VSelect v-model="sortOrder" label="Urutan" :items="[{ title: 'DESC', value: 'desc' }, { title: 'ASC', value: 'asc' }]" item-title="title" item-value="value" /></VCol>
         <VCol cols="12" md="2"><VSelect v-model="perPage" label="Per halaman" :items="[10, 20, 50]" /></VCol>
       </VRow>
@@ -198,7 +198,7 @@ onMounted(fetchClients)
       <VProgressLinear v-if="isLoading" indeterminate color="primary" class="mb-4" />
       <VTable density="comfortable">
         <thead>
-          <tr><th>Nama</th><th>Kode</th><th>PIC</th><th>Telepon</th><th>Status</th><th>Diubah Pada</th><th class="text-end">Aksi</th></tr>
+          <tr><th>Nama</th><th>Kode</th><th>PIC</th><th>Telepon</th><th>Status</th><th>Dibuat Pada</th><th class="text-end">Aksi</th></tr>
         </thead>
         <tbody>
           <tr v-if="!isLoading && rows.length === 0"><td colspan="7" class="text-center text-medium-emphasis py-6">Data client belum ada.</td></tr>
@@ -208,7 +208,7 @@ onMounted(fetchClients)
             <td>{{ item.contact_person || '-' }}</td>
             <td>{{ item.phone_number || '-' }}</td>
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
-            <td>{{ formatDate(item.updated_at) }}</td>
+            <td>{{ formatDate(item.created_at) }}</td>
             <td class="text-end">
               <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
               <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
@@ -334,3 +334,4 @@ onMounted(fetchClients)
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
+

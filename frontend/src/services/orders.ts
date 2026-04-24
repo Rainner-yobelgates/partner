@@ -131,6 +131,7 @@ export type OrderRecapRow = {
   order_number: string
   customer_name?: string | null
   customer_phone?: string | null
+  destination?: string | null
   status?: OrderStatus | null
   created_at: string
   trip_sheet_count: number
@@ -215,10 +216,14 @@ export const orderService = {
       method: 'DELETE',
     })
   },
-  recap(month: number, year: number) {
+  recap(month: number, year: number, dateFrom?: string, dateTo?: string) {
     const params = new URLSearchParams()
     params.set('month', String(month))
     params.set('year', String(year))
+    if (dateFrom)
+      params.set('date_from', dateFrom)
+    if (dateTo)
+      params.set('date_to', dateTo)
     return request<OrderRecapResponse>(`/orders/recap?${params.toString()}`)
   },
 }

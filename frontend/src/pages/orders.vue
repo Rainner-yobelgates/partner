@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ApiError } from '@/services/http'
 import { orderService, type OrderItem, type OrderPayload, type OrderStatus, type TripSheetLink } from '@/services/orders'
 import {
@@ -13,6 +13,7 @@ import {
   parseOptionalApiDecimalMoney,
   sanitizeDecimalMoneyInput,
 } from '@/utils/money-input'
+import { formatRupiah, formatRupiahPlain } from '@/utils/currency'
 
 type OrderForm = {
   order_number: string
@@ -53,7 +54,7 @@ const total = ref(0)
 const page = ref(1)
 const perPage = ref(10)
 const search = ref('')
-const sortBy = ref<'created_at' | 'order_number' | 'usage_date' | 'updated_at'>('created_at')
+const sortBy = ref<'created_at' | 'order_number' | 'usage_date'>('created_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -158,13 +159,9 @@ const phoneRules = [optionalPhoneRule]
 
 /** Tampilan rupiah dari string DECIMAL API (mis. "1500000.00"). */
 const formatMoneyId = (value?: string | null) => {
-  if (value == null || value === '')
-    return '-'
-  const n = Number(value)
-  if (!Number.isFinite(n))
-    return value
-  return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  return formatRupiah(value)
 }
+const formatMoneyTable = (value?: string | null) => formatRupiahPlain(value)
 
 const onTotalAmountInput = (v: string) => {
   form.value.total_amount = sanitizeDecimalMoneyInput(String(v ?? ''))
@@ -539,8 +536,7 @@ onMounted(async () => {
               { title: 'Dibuat', value: 'created_at' },
               { title: 'Nomor Reservasi', value: 'order_number' },
               { title: 'Tanggal Mulai', value: 'usage_date' },
-              { title: 'Diubah', value: 'updated_at' },
-            ]"
+              ]"
             item-title="title"
             item-value="value"
           />
@@ -572,24 +568,26 @@ onMounted(async () => {
           <tr>
             <th>Nomor</th>
             <th>Start - Finish</th>
+            <th>Tujuan</th>
             <th>Jumlah Kendaraan</th>
             <th>Total</th>
             <th>Status</th>
-            <th>Diubah Pada</th>
+            <th>Dibuat Pada</th>
             <th class="text-end">Aksi</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="!isLoading && rows.length === 0">
-            <td colspan="7" class="text-center text-medium-emphasis py-6">Data reservasi belum ada.</td>
+            <td colspan="8" class="text-center text-medium-emphasis py-6">Data reservasi belum ada.</td>
           </tr>
           <tr v-for="item in rows" :key="item.id">
             <td class="font-weight-medium">{{ item.order_number }}</td>
             <td>{{ formatOrderPeriod(item) }}</td>
+            <td>{{ getDestination(item) || '-' }}</td>
             <td>{{ item.total_vehicles ?? '-' }}</td>
-            <td>{{ formatMoneyId(item.total_amount) }}</td>
+            <td>{{ formatMoneyTable(item.total_amount) }}</td>
             <td><VChip size="small" :color="item.status === 'CONFIRMED' ? 'success' : item.status === 'CANCELLED' ? 'error' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
-            <td>{{ formatDate(item.updated_at) }}</td>
+            <td>{{ formatDate(item.created_at) }}</td>
             <td class="text-end">
               <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
               <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
@@ -881,4 +879,5 @@ onMounted(async () => {
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
+
 

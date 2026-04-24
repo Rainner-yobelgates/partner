@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ApiError } from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { facilityMasterService, type FacilityItem, type MasterStatus } from '@/services/masters'
@@ -7,6 +7,7 @@ import {
   onPasteSanitizedDecimalMoney,
   parseOptionalApiDecimalMoney,
 } from '@/utils/money-input'
+import { formatRupiah, formatRupiahPlain } from '@/utils/currency'
 
 type FacilityForm = {
   name: string
@@ -20,7 +21,7 @@ const total = ref(0)
 const page = ref(1)
 const perPage = ref(10)
 const search = ref('')
-const sortBy = ref<'created_at' | 'name' | 'updated_at'>('created_at')
+const sortBy = ref<'created_at' | 'name'>('created_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -63,6 +64,8 @@ const formatDate = (value: string) => new Intl.DateTimeFormat('id-ID', {
   dateStyle: 'medium',
   timeStyle: 'short',
 }).format(new Date(value))
+const formatMoneyId = (value?: string | null) => formatRupiah(value)
+const formatMoneyTable = (value?: string | null) => formatRupiahPlain(value)
 
 const fetchFacilities = async () => {
   isLoading.value = true
@@ -237,8 +240,7 @@ onMounted(fetchFacilities)
             :items="[
               { title: 'Dibuat', value: 'created_at' },
               { title: 'Nama', value: 'name' },
-              { title: 'Diubah', value: 'updated_at' },
-            ]"
+              ]"
             item-title="title"
             item-value="value"
           />
@@ -272,7 +274,7 @@ onMounted(fetchFacilities)
             <th>Biaya</th>
             <th>Deskripsi</th>
             <th>Status</th>
-            <th>Diubah Pada</th>
+            <th>Dibuat Pada</th>
             <th class="text-end">Aksi</th>
           </tr>
         </thead>
@@ -282,10 +284,10 @@ onMounted(fetchFacilities)
           </tr>
           <tr v-for="item in rows" :key="item.id">
             <td class="font-weight-medium">{{ item.name }}</td>
-            <td>{{ item.cost ?? '-' }}</td>
+            <td>{{ formatMoneyTable(item.cost) }}</td>
             <td>{{ item.description || '-' }}</td>
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
-            <td>{{ formatDate(item.updated_at) }}</td>
+            <td>{{ formatDate(item.created_at) }}</td>
             <td class="text-end">
               <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
               <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
@@ -366,7 +368,7 @@ onMounted(fetchFacilities)
             <VCard variant="tonal" class="h-100">
               <VCardText>
                 <div class="text-caption text-medium-emphasis mb-1">Biaya</div>
-                <div class="text-body-1 text-break">{{ detailItem?.cost ?? '-' }}</div>
+                <div class="text-body-1 text-break">{{ formatMoneyId(detailItem?.cost) }}</div>
               </VCardText>
             </VCard>
           </VCol>

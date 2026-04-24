@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ApiError } from '@/services/http'
 import {
   clientMasterService,
@@ -14,6 +14,7 @@ import {
   parseOptionalApiDecimalMoney,
   sanitizeDecimalMoneyInput,
 } from '@/utils/money-input'
+import { formatRupiah, formatRupiahPlain } from '@/utils/currency'
 
 type ContractForm = {
   contract_number: string
@@ -33,7 +34,7 @@ const total = ref(0)
 const page = ref(1)
 const perPage = ref(10)
 const search = ref('')
-const sortBy = ref<'created_at' | 'contract_number' | 'updated_at'>('created_at')
+const sortBy = ref<'created_at' | 'contract_number'>('created_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -87,13 +88,9 @@ const formatDate = (value?: string | null) => value ? new Intl.DateTimeFormat('i
 
 /** Tampilan rupiah dari string DECIMAL API (mis. "3500000.00"). */
 const formatMoneyId = (value?: string | null) => {
-  if (value == null || value === '')
-    return '-'
-  const n = Number(value)
-  if (!Number.isFinite(n))
-    return value
-  return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  return formatRupiah(value)
 }
+const formatMoneyTable = (value?: string | null) => formatRupiahPlain(value)
 
 const onContractValueInput = (v: string) => {
   form.value.contract_value = sanitizeDecimalMoneyInput(String(v ?? ''))
@@ -311,7 +308,7 @@ onMounted(async () => {
       <VRow>
         <VCol cols="12" md="5"><VTextField v-model="search" label="Cari kontrak" placeholder="Nomor / client / PIC / email / telepon" prepend-inner-icon="ri-search-line" @keyup.enter="onSearch" /></VCol>
         <VCol cols="12" md="2"><VBtn block class="mt-md-1" color="secondary" @click="onSearch">Cari</VBtn></VCol>
-        <VCol cols="6" md="2"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title: 'Dibuat', value: 'created_at' }, { title: 'No Kontrak', value: 'contract_number' }, { title: 'Diubah', value: 'updated_at' }]" item-title="title" item-value="value" /></VCol>
+        <VCol cols="6" md="2"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title: 'Dibuat', value: 'created_at' }, { title: 'No Kontrak', value: 'contract_number' }, ]" item-title="title" item-value="value" /></VCol>
         <VCol cols="6" md="1"><VSelect v-model="sortOrder" label="Urutan" :items="[{ title: 'DESC', value: 'desc' }, { title: 'ASC', value: 'asc' }]" item-title="title" item-value="value" /></VCol>
         <VCol cols="12" md="2"><VSelect v-model="perPage" label="Per halaman" :items="[10, 20, 50]" /></VCol>
       </VRow>
@@ -321,7 +318,7 @@ onMounted(async () => {
       <VProgressLinear v-if="isLoading" indeterminate color="primary" class="mb-4" />
       <VTable density="comfortable">
         <thead>
-          <tr><th>No Kontrak</th><th>Client</th><th>Periode</th><th>Nilai Kontrak</th><th>PIC</th><th>Status</th><th>Diubah Pada</th><th class="text-end">Aksi</th></tr>
+          <tr><th>No Kontrak</th><th>Client</th><th>Periode</th><th>Nilai Kontrak</th><th>PIC</th><th>Status</th><th>Dibuat Pada</th><th class="text-end">Aksi</th></tr>
         </thead>
         <tbody>
           <tr v-if="!isLoading && rows.length === 0"><td colspan="8" class="text-center text-medium-emphasis py-6">Data kontrak belum ada.</td></tr>
@@ -329,10 +326,10 @@ onMounted(async () => {
             <td class="font-weight-medium">{{ item.contract_number || '-' }}</td>
             <td>{{ item.client?.name || '-' }}</td>
             <td>{{ formatPeriod(item.contract_month, item.contract_year) }}</td>
-            <td class="text-end">{{ formatMoneyId(item.contract_value) }}</td>
+            <td class="text-end">{{ formatMoneyTable(item.contract_value) }}</td>
             <td>{{ item.contact_person || '-' }}</td>
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
-            <td>{{ formatDate(item.updated_at) }}</td>
+            <td>{{ formatDate(item.created_at) }}</td>
             <td class="text-end">
               <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
               <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
@@ -496,3 +493,4 @@ onMounted(async () => {
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
+

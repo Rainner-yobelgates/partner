@@ -70,12 +70,40 @@ export type DashboardOrderFinancial = {
   }
 }
 
+export type DashboardTotalFinancial = {
+  monthly: DashboardMonthlyFinancial[]
+  totals: {
+    total_revenue: string | null
+    total_expense: string | null
+    total_profit: string | null
+  }
+  revenue_breakdown: {
+    contract: string | null
+    reservasi: string | null
+    total: string | null
+  }
+  expense_breakdown: {
+    client_ajk: string | null
+    reservasi: string | null
+    vehicle_service: string | null
+    facility: string | null
+    total: string | null
+  }
+  filter: {
+    year: number
+    year_from: string
+    year_to_before: string
+    client_id: string | null
+  }
+}
+
 export type DashboardOverview = {
   filter: DashboardFilterMeta
   master_summary: DashboardMasterSummary
   report_summary: DashboardReportSummary
   client_financial: DashboardClientFinancial
   order_financial: DashboardOrderFinancial
+  total_financial: DashboardTotalFinancial
 }
 
 export type DashboardOverviewResponse = {

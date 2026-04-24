@@ -2,6 +2,7 @@
 import { ApiError } from '@/services/http'
 import { orderService, type OrderRecapRow, type OrderRecapSummary } from '@/services/orders'
 import { useAuthStore } from '@/stores/auth'
+import { formatRupiah, formatRupiahPlain } from '@/utils/currency'
 
 const authStore = useAuthStore()
 const canRead = computed(() => authStore.hasPermission('order-recap:read'))
@@ -9,11 +10,15 @@ const canRead = computed(() => authStore.hasPermission('order-recap:read'))
 const now = new Date()
 const month = ref(now.getMonth() + 1)
 const year = ref(now.getFullYear())
+const startDate = ref('')
+const endDate = ref('')
 
 const isLoading = ref(false)
 const rows = ref<OrderRecapRow[]>([])
 const summary = ref<OrderRecapSummary | null>(null)
 const filterMeta = ref<{ created_from: string; created_to_before: string } | null>(null)
+const isDetailDialogOpen = ref(false)
+const detailRow = ref<OrderRecapRow | null>(null)
 
 const snackbar = ref({ show: false, color: 'success' as const, text: '' })
 
@@ -54,13 +59,9 @@ const getErrorMessage = (error: unknown) => {
 }
 
 const formatMoneyId = (value?: string | null) => {
-  if (value == null || value === '')
-    return '-'
-  const n = Number(value)
-  if (!Number.isFinite(n))
-    return value
-  return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  return formatRupiah(value)
 }
+const formatMoneyTable = (value?: string | null) => formatRupiahPlain(value)
 
 const formatDate = (value?: string | null) => {
   if (!value)
@@ -81,13 +82,23 @@ const profitClass = (value?: string | null) => {
   return ''
 }
 
+const openDetailDialog = (row: OrderRecapRow) => {
+  detailRow.value = row
+  isDetailDialogOpen.value = true
+}
+
 const fetchRecap = async () => {
   if (!canRead.value)
     return
 
   isLoading.value = true
   try {
-    const res = await orderService.recap(month.value, year.value)
+    const res = await orderService.recap(
+      month.value,
+      year.value,
+      startDate.value || undefined,
+      endDate.value || undefined,
+    )
     rows.value = res.data
     summary.value = res.summary
     filterMeta.value = { created_from: res.filter.created_from, created_to_before: res.filter.created_to_before }
@@ -124,7 +135,7 @@ onMounted(() => {
 
     <VCardText>
       <VRow align="end">
-        <VCol cols="12" sm="4" md="3">
+        <VCol cols="12" sm="6" md="2">
           <VSelect
             v-model="month"
             label="Bulan"
@@ -133,7 +144,7 @@ onMounted(() => {
             item-value="value"
           />
         </VCol>
-        <VCol cols="12" sm="4" md="3">
+        <VCol cols="12" sm="6" md="2">
           <VSelect
             v-model="year"
             label="Tahun"
@@ -142,14 +153,28 @@ onMounted(() => {
             item-value="value"
           />
         </VCol>
-        <VCol cols="12" sm="4" md="3">
+        <VCol cols="12" sm="6" md="3">
+          <VTextField
+            v-model="startDate"
+            label="Start Date (Created)"
+            type="date"
+          />
+        </VCol>
+        <VCol cols="12" sm="6" md="3">
+          <VTextField
+            v-model="endDate"
+            label="End Date (Created)"
+            type="date"
+          />
+        </VCol>
+        <VCol cols="12" sm="12" md="2">
           <VBtn color="primary" block class="mt-1" :loading="isLoading" @click="fetchRecap">
             Terapkan
           </VBtn>
         </VCol>
       </VRow>
       <p v-if="filterMeta" class="text-caption text-medium-emphasis mt-2 mb-0">
-        Rentang: {{ filterMeta.created_from }} — sebelum {{ filterMeta.created_to_before }}
+        Rentang: {{ filterMeta.created_from }} - sebelum {{ filterMeta.created_to_before }}
       </p>
     </VCardText>
 
@@ -183,6 +208,7 @@ onMounted(() => {
               <th>No. Reservasi</th>
               <th>Customer</th>
               <th>Telepon</th>
+              <th>Tujuan</th>
               <th>Dibuat</th>
               <th>Status</th>
               <th class="text-end">Jml TS</th>
@@ -194,11 +220,12 @@ onMounted(() => {
               <th class="text-end">Lain-lain</th>
               <th class="text-end">Total keluar</th>
               <th class="text-end">Keuntungan</th>
+              <th class="text-end">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="!isLoading && rows.length === 0">
-              <td colspan="14" class="text-center text-medium-emphasis py-8">
+              <td colspan="16" class="text-center text-medium-emphasis py-8">
                 Tidak ada reservasi pada periode ini.
               </td>
             </tr>
@@ -206,6 +233,7 @@ onMounted(() => {
               <td class="font-weight-medium">{{ row.order_number }}</td>
               <td>{{ row.customer_name || '-' }}</td>
               <td>{{ row.customer_phone || '-' }}</td>
+              <td>{{ row.destination || '-' }}</td>
               <td>{{ formatDate(row.created_at) }}</td>
               <td>
                 <VChip
@@ -217,14 +245,17 @@ onMounted(() => {
                 </VChip>
               </td>
               <td class="text-end">{{ row.trip_sheet_count }}</td>
-              <td class="text-end">{{ formatMoneyId(row.income) }}</td>
-              <td class="text-end">{{ formatMoneyId(row.expense_fuel) }}</td>
-              <td class="text-end">{{ formatMoneyId(row.expense_toll) }}</td>
-              <td class="text-end">{{ formatMoneyId(row.expense_parking) }}</td>
-              <td class="text-end">{{ formatMoneyId(row.expense_stay) }}</td>
-              <td class="text-end">{{ formatMoneyId(row.expense_others) }}</td>
-              <td class="text-end">{{ formatMoneyId(row.total_expense) }}</td>
-              <td class="text-end" :class="profitClass(row.profit)">{{ formatMoneyId(row.profit) }}</td>
+              <td class="text-end">{{ formatMoneyTable(row.income) }}</td>
+              <td class="text-end">{{ formatMoneyTable(row.expense_fuel) }}</td>
+              <td class="text-end">{{ formatMoneyTable(row.expense_toll) }}</td>
+              <td class="text-end">{{ formatMoneyTable(row.expense_parking) }}</td>
+              <td class="text-end">{{ formatMoneyTable(row.expense_stay) }}</td>
+              <td class="text-end">{{ formatMoneyTable(row.expense_others) }}</td>
+              <td class="text-end">{{ formatMoneyTable(row.total_expense) }}</td>
+              <td class="text-end" :class="profitClass(row.profit)">{{ formatMoneyTable(row.profit) }}</td>
+              <td class="text-end">
+                <VBtn size="small" variant="text" color="secondary" @click="openDetailDialog(row)">Detail</VBtn>
+              </td>
             </tr>
           </tbody>
         </VTable>
@@ -232,6 +263,98 @@ onMounted(() => {
     </VCardText>
   </VCard>
 
+  <VDialog v-model="isDetailDialogOpen" max-width="840">
+    <VCard>
+      <VCardItem title="Detail Rekap Reservasi" />
+      <VCardText>
+        <VRow>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">No. Reservasi</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailRow?.order_number || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Customer</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailRow?.customer_name || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Telepon</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailRow?.customer_phone || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Tujuan</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailRow?.destination || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Dibuat</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ formatDate(detailRow?.created_at) }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Status</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailRow?.status || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Jumlah Trip Sheet</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ detailRow?.trip_sheet_count ?? 0 }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Pemasukan</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ formatMoneyId(detailRow?.income) }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Total Pengeluaran</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ formatMoneyId(detailRow?.total_expense) }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12">
+            <VCard variant="tonal">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Keuntungan / Selisih</div>
+                <div class="text-body-1 font-weight-medium text-break" :class="profitClass(detailRow?.profit)">{{ formatMoneyId(detailRow?.profit) }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+        </VRow>
+      </VCardText>
+      <VCardActions class="justify-end">
+        <VBtn variant="text" @click="isDetailDialogOpen = false">Tutup</VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2800">{{ snackbar.text }}</VSnackbar>
 </template>
-

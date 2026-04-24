@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ApiError } from '@/services/http'
 import {
   clientMasterService,
@@ -17,6 +17,7 @@ import {
   parseOptionalApiDecimalMoney,
   sanitizeDecimalMoneyInput,
 } from '@/utils/money-input'
+import { formatRupiah, formatRupiahPlain } from '@/utils/currency'
 
 type ShuttleForm = {
   client_id: string
@@ -38,7 +39,7 @@ const routes = ref<RouteItem[]>([])
 const total = ref(0)
 const page = ref(1)
 const perPage = ref(10)
-const sortBy = ref<'scheduled_date' | 'created_at' | 'updated_at'>('scheduled_date')
+const sortBy = ref<'scheduled_date' | 'created_at'>('scheduled_date')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -83,13 +84,9 @@ const getErrorMessage = (error: unknown) => error instanceof ApiError ? error.me
 const formatDate = (value?: string | null) => value ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '-'
 
 const formatMoneyId = (value?: string | null) => {
-  if (value == null || value === '')
-    return '-'
-  const n = Number(value)
-  if (!Number.isFinite(n))
-    return value
-  return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  return formatRupiah(value)
 }
+const formatMoneyTable = (value?: string | null) => formatRupiahPlain(value)
 
 const onMoneyFieldInput = (field: 'crew_incentive' | 'fuel' | 'toll_fee' | 'others', v: string) => {
   form.value[field] = sanitizeDecimalMoneyInput(String(v ?? ''))
@@ -234,7 +231,7 @@ onMounted(async () => { await fetchOptions(); await fetchShuttles() })
     </VCardItem>
     <VCardText>
       <VRow>
-        <VCol cols="6" md="3"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title: 'Jadwal', value: 'scheduled_date' },{ title: 'Dibuat', value: 'created_at' },{ title: 'Diubah', value: 'updated_at' }]" item-title="title" item-value="value" /></VCol>
+        <VCol cols="6" md="3"><VSelect v-model="sortBy" label="Urutkan" :items="[{ title: 'Jadwal', value: 'scheduled_date' },{ title: 'Dibuat', value: 'created_at' },]" item-title="title" item-value="value" /></VCol>
         <VCol cols="6" md="2"><VSelect v-model="sortOrder" label="Urutan" :items="[{ title:'DESC', value:'desc'},{ title:'ASC', value:'asc'}]" item-title="title" item-value="value" /></VCol>
         <VCol cols="12" md="2"><VSelect v-model="perPage" label="Per halaman" :items="[10,20,50]" /></VCol>
       </VRow>
@@ -253,7 +250,7 @@ onMounted(async () => { await fetchOptions(); await fetchShuttles() })
             <td>{{ item.vehicle?.plate_number || '-' }}</td>
             <td>{{ item.route ? `${item.route.origin || '-'} -> ${item.route.destination || '-'}` : '-' }}</td>
             <td>{{ formatDate(item.scheduled_date) }}</td>
-            <td>{{ formatMoneyId(item.crew_incentive) }}</td>
+            <td>{{ formatMoneyTable(item.crew_incentive) }}</td>
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
             <td class="text-end">
               <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>

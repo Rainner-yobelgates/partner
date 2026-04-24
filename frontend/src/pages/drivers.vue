@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ApiError } from '@/services/http'
 import {
   driverMasterService,
@@ -27,7 +27,7 @@ const total = ref(0)
 const page = ref(1)
 const perPage = ref(10)
 const search = ref('')
-const sortBy = ref<'created_at' | 'name' | 'updated_at'>('created_at')
+const sortBy = ref<'created_at' | 'name'>('created_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const isLoading = ref(false)
 const isFormDialogOpen = ref(false)
@@ -277,8 +277,7 @@ onMounted(async () => {
             :items="[
               { title: 'Dibuat', value: 'created_at' },
               { title: 'Nama', value: 'name' },
-              { title: 'Diubah', value: 'updated_at' },
-            ]"
+              ]"
             item-title="title"
             item-value="value"
           />
@@ -314,7 +313,7 @@ onMounted(async () => {
             <th>Tipe</th>
             <th>Kendaraan</th>
             <th>Status</th>
-            <th>Diubah Pada</th>
+            <th>Dibuat Pada</th>
             <th class="text-end">Aksi</th>
           </tr>
         </thead>
@@ -332,7 +331,7 @@ onMounted(async () => {
                 {{ item.status || '-' }}
               </VChip>
             </td>
-            <td>{{ formatDate(item.updated_at) }}</td>
+            <td>{{ formatDate(item.created_at) }}</td>
             <td class="text-end">
               <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>
               <VBtn v-if="canUpdate" size="small" variant="text" color="primary" @click="openEditDialog(item)">Ubah</VBtn>
@@ -506,3 +505,4 @@ onMounted(async () => {
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
+

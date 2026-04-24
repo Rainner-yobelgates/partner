@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
@@ -19,14 +20,35 @@ export class OrderService {
   constructor(private readonly prisma: PrismaService) {}
 
   async recap(query: QueryOrderRecapDto) {
-    const start = new Date(Date.UTC(query.year, query.month - 1, 1, 0, 0, 0, 0));
-    const end = new Date(Date.UTC(query.year, query.month, 1, 0, 0, 0, 0));
+    const monthStart = new Date(Date.UTC(query.year, query.month - 1, 1, 0, 0, 0, 0));
+    const monthEndExclusive = new Date(Date.UTC(query.year, query.month, 1, 0, 0, 0, 0));
+    let start = monthStart;
+    let endExclusive = monthEndExclusive;
+
+    if (query.date_from) {
+      const dateFrom = this.parseDateFromInput(query.date_from);
+      if (dateFrom > start)
+        start = dateFrom;
+    }
+
+    if (query.date_to) {
+      const dateToExclusive = this.parseDateToExclusiveInput(query.date_to);
+      if (dateToExclusive < endExclusive)
+        endExclusive = dateToExclusive;
+    }
+
+    if (endExclusive <= start) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Rentang created_at tidak valid: date_to harus lebih besar dari date_from',
+      });
+    }
 
     try {
       const orders = await this.prisma.db.order.findMany({
         where: {
           deleted_at: null,
-          created_at: { gte: start, lt: end },
+          created_at: { gte: start, lt: endExclusive },
         },
         orderBy: { created_at: 'asc' },
         select: {
@@ -35,6 +57,8 @@ export class OrderService {
           order_number: true,
           customer_name: true,
           customer_phone: true,
+          destination: true,
+          dropoff_location: true,
           total_amount: true,
           status: true,
           created_at: true,
@@ -77,6 +101,7 @@ export class OrderService {
           order_number: order.order_number,
           customer_name: order.customer_name,
           customer_phone: order.customer_phone,
+          destination: order.destination ?? order.dropoff_location ?? null,
           status: order.status,
           created_at: order.created_at,
           trip_sheet_count: tripSheetCount,
@@ -105,12 +130,45 @@ export class OrderService {
           month: query.month,
           year: query.year,
           created_from: start.toISOString(),
-          created_to_before: end.toISOString(),
+          created_to_before: endExclusive.toISOString(),
         },
       };
     } catch (error: unknown) {
       return this.handleError(error);
     }
+  }
+
+  private parseDateFromInput(raw: string): Date {
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+    const date = dateOnly ? new Date(`${raw}T00:00:00.000Z`) : new Date(raw);
+
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException({
+        success: false,
+        message: 'date_from tidak valid',
+      });
+    }
+
+    return date;
+  }
+
+  private parseDateToExclusiveInput(raw: string): Date {
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+    const date = dateOnly ? new Date(`${raw}T00:00:00.000Z`) : new Date(raw);
+
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException({
+        success: false,
+        message: 'date_to tidak valid',
+      });
+    }
+
+    if (dateOnly) {
+      date.setUTCDate(date.getUTCDate() + 1);
+      return date;
+    }
+
+    return date;
   }
 
   private aggregateTripSheetCosts(
