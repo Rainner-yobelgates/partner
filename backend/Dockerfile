@@ -13,7 +13,6 @@ RUN npm run build
 FROM node:lts-alpine
 WORKDIR /app
 
-
 RUN apk add --no-cache openssl libc6-compat
 
 COPY --from=builder /app/dist ./dist
