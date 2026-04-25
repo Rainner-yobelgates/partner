@@ -1,0 +1,15 @@
+services:
+  frontend:
+    build: .
+    container_name: vue_frontend_nginx
+    restart: always
+    ports:
+      - "89:80"
+    environment:
+      - VITE_API_BASE_URL="http://nest_api:3000"
+    networks:
+      - artodigital
+
+networks:
+  artodigital:
+    external: true

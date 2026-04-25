@@ -1,0 +1,25 @@
+# Dependency & Build
+node_modules
+dist
+generated
+npm-debug.log
+
+# Environment Variables (Sangat Penting!)
+.env
+.env.example
+
+# Docker & OS
+Dockerfile
+.dockerignore
+.git
+.gitignore
+DS_Store
+docker-compose*
+start.sh
+
+# IDE & Linting
+.prettierrc
+eslint.config.mjs
+
+# Local Storage/Uploads
+uploads/
