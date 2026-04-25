@@ -13,7 +13,7 @@ RUN npm run build
 FROM node:lts-alpine
 WORKDIR /app
 
-# WAJIB: Alpine butuh ini buat Prisma Engine
+
 RUN apk add --no-cache openssl libc6-compat
 
 COPY --from=builder /app/dist ./dist
