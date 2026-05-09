@@ -1,0 +1,21 @@
+services:
+  api:
+    build: .
+    container_name: nest_api
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgres://postgres:rahasia@postgres:5432/project?schema=public"
+      DIRECT_URL: "postgres://postgres:rahasia@postgres:5432/project?schema=public"
+      PORT: 3000
+      NODE_ENV: "development"
+      JWT_SECRET: "3f9a1b7c6d2e8f4a9b0c1d2e3f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a"
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - artodigital
+
+networks:
+  artodigital:
+    external: true
