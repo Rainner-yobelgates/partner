@@ -241,16 +241,19 @@ onMounted(async () => { await fetchOptions(); await fetchShuttles() })
       <VProgressLinear v-if="isLoading" indeterminate color="primary" class="mb-4" />
       <VTable density="comfortable">
         <thead>
-          <tr><th>Klien</th><th>Kendaraan</th><th>Rute</th><th>Jadwal</th><th>Insentif Kru</th><th>Status</th><th class="text-end">Aksi</th></tr>
+          <tr><th>Klien</th><th>Kendaraan</th><th>Rute</th><th>Jadwal</th><th>Insentif Kru</th><th>Bensin</th><th>Tol</th><th>Lainnya</th><th>Status</th><th class="text-end">Aksi</th></tr>
         </thead>
         <tbody>
-          <tr v-if="!isLoading && rows.length===0"><td colspan="7" class="text-center text-medium-emphasis py-6">Data antar jemput belum ada.</td></tr>
+          <tr v-if="!isLoading && rows.length===0"><td colspan="10" class="text-center text-medium-emphasis py-6">Data antar jemput belum ada.</td></tr>
           <tr v-for="item in rows" :key="item.id">
             <td>{{ item.client?.name || '-' }}</td>
             <td>{{ item.vehicle?.plate_number || '-' }}</td>
             <td>{{ item.route ? `${item.route.origin || '-'} -> ${item.route.destination || '-'}` : '-' }}</td>
             <td>{{ formatDate(item.scheduled_date) }}</td>
             <td>{{ formatMoneyTable(item.crew_incentive) }}</td>
+            <td>{{ formatMoneyTable(item.fuel) }}</td>
+            <td>{{ formatMoneyTable(item.toll_fee) }}</td>
+            <td>{{ formatMoneyTable(item.others) }}</td>
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
             <td class="text-end">
               <VBtn v-if="canDetail" size="small" variant="text" color="secondary" @click="openDetailDialog(item)">Detail</VBtn>

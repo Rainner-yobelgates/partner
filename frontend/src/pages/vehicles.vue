@@ -338,7 +338,16 @@ onMounted(fetchVehicles)
               <VSelect
                 v-model="form.vehicle_type"
                 label="Tipe Kendaraan"
-                :items="['HIACE', 'MEDIUM_BUS', 'EVALIA']"
+                :items="[
+                  { title: 'HIACE', value: 'HIACE' },
+                  { title: 'Medium Bus', value: 'MEDIUM_BUS' },
+                  { title: 'Evalia', value: 'EVALIA' },
+                  { title: 'Avanza', value: 'AVANZA' },
+                  { title: 'Veloz Hybrid', value: 'VELOZ_HYBRID' },
+                  { title: 'Innova Zenix', value: 'INNOVA_ZENIX' },
+                ]"
+                item-title="title"
+                item-value="value"
               />
             </VCol>
             <VCol cols="12" md="6">

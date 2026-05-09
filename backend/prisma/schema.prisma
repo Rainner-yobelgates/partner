@@ -19,6 +19,9 @@ enum VehicleType {
   EVALIA
   MEDIUM_BUS
   HIACE
+  AVANZA
+  VELOZ_HYBRID
+  INNOVA_ZENIX
 }
 
 enum DriverType {

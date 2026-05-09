@@ -53,6 +53,19 @@ const form = ref<DriverForm>({
   vehicle_id: '',
 })
 
+const driverTypeLabels: Record<DriverType, string> = {
+  MAIN: 'Utama',
+  ASSISTANT: 'Asisten',
+  RESERVE: 'Cadangan',
+}
+
+const getDriverTypeLabel = (type?: DriverType | string | null) => {
+  if (!type)
+    return '-'
+
+  return driverTypeLabels[type as DriverType] ?? type
+}
+
 const snackbar = ref({ show: false, color: 'success', text: '' })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / perPage.value)))
@@ -324,7 +337,7 @@ onMounted(async () => {
           <tr v-for="item in rows" :key="item.id">
             <td class="font-weight-medium">{{ item.name }}</td>
             <td>{{ item.phone_number || '-' }}</td>
-            <td>{{ item.type || '-' }}</td>
+            <td>{{ getDriverTypeLabel(item.type) }}</td>
             <td>{{ item.vehicle?.plate_number || '-' }}</td>
             <td>
               <VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>
@@ -380,7 +393,17 @@ onMounted(async () => {
               />
             </VCol>
             <VCol cols="12" md="6">
-              <VSelect v-model="form.type" label="Tipe Pengemudi" :items="['MAIN', 'ASSISTANT', 'RESERVE']" />
+              <VSelect
+                v-model="form.type"
+                label="Tipe Pengemudi"
+                :items="[
+                  { title: 'Utama', value: 'MAIN' },
+                  { title: 'Asisten', value: 'ASSISTANT' },
+                  { title: 'Cadangan', value: 'RESERVE' },
+                ]"
+                item-title="title"
+                item-value="value"
+              />
             </VCol>
             <VCol cols="12" md="6">
               <VSelect
@@ -451,7 +474,7 @@ onMounted(async () => {
             <VCard variant="tonal" class="h-100">
               <VCardText>
                 <div class="text-caption text-medium-emphasis mb-1">Tipe</div>
-                <div class="text-body-1 text-break">{{ detailItem?.type || '-' }}</div>
+                <div class="text-body-1 text-break">{{ getDriverTypeLabel(detailItem?.type) }}</div>
               </VCardText>
             </VCard>
           </VCol>

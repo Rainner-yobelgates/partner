@@ -13,8 +13,8 @@ import { formatRupiah } from '@/utils/currency'
 
 type TripSheetForm = {
   order_vehicle_id: string
-  driver_id: string
-  assistant_id: string
+  driver_id: string | null
+  assistant_id: string | null
   fuel_cost: string
   toll_fee: string
   parking_fee: string
@@ -62,8 +62,8 @@ const fromMoneyResponse = (value: string | number | null | undefined) => {
 
 const form = ref<TripSheetForm>({
   order_vehicle_id: '',
-  driver_id: '',
-  assistant_id: '',
+  driver_id: null,
+  assistant_id: null,
   fuel_cost: '',
   toll_fee: '',
   parking_fee: '',
@@ -191,17 +191,19 @@ const parseMoneyPayload = (): ParsedMoneyPayload | null => {
   }
 }
 
+const getTrimmedValue = (value: string | null | undefined) => String(value ?? '').trim()
+
 const buildFormData = (moneyPayload: ParsedMoneyPayload) => {
   const data = new FormData()
   const existing = existingAttachments.value.filter((item) => item && item.trim())
 
-  data.append('order_vehicle_id', form.value.order_vehicle_id.trim())
+  data.append('order_vehicle_id', getTrimmedValue(form.value.order_vehicle_id))
 
-  if (form.value.driver_id.trim())
-    data.append('driver_id', form.value.driver_id.trim())
+  const driverId = getTrimmedValue(form.value.driver_id)
+  data.append('driver_id', driverId)
 
-  if (form.value.assistant_id.trim())
-    data.append('assistant_id', form.value.assistant_id.trim())
+  const assistantId = getTrimmedValue(form.value.assistant_id)
+  data.append('assistant_id', assistantId)
 
   if (moneyPayload.fuel_cost !== undefined)
     data.append('fuel_cost', moneyPayload.fuel_cost)
@@ -317,8 +319,8 @@ const openEditDialog = (item: TripSheetItem) => {
   existingAttachments.value = parseAttachmentValue(item.attachment)
   form.value = {
     order_vehicle_id: item.order_vehicle_id || '',
-    driver_id: item.driver_id || '',
-    assistant_id: item.assistant_id || '',
+    driver_id: item.driver_id || null,
+    assistant_id: item.assistant_id || null,
     fuel_cost: fromMoneyResponse(item.fuel_cost),
     toll_fee: fromMoneyResponse(item.toll_fee),
     parking_fee: fromMoneyResponse(item.parking_fee),
@@ -448,6 +450,7 @@ onMounted(async () => {
             <th>Order</th>
             <th>Kendaraan</th>
             <th>Driver</th>
+            <th>Assistant</th>
             <th>Tujuan</th>
             <th>Status</th>
             <th>Dibuat Pada</th>
@@ -456,12 +459,13 @@ onMounted(async () => {
         </thead>
         <tbody>
           <tr v-if="!isLoading && rows.length === 0">
-            <td colspan="7" class="text-center text-medium-emphasis py-6">Data surat jalan belum ada.</td>
+            <td colspan="8" class="text-center text-medium-emphasis py-6">Data surat jalan belum ada.</td>
           </tr>
           <tr v-for="item in rows" :key="item.id">
             <td class="font-weight-medium">{{ item.orderVehicle?.order?.order_number || '-' }}</td>
             <td>{{ item.orderVehicle?.vehicle?.plate_number || '-' }}</td>
             <td>{{ item.driver?.name || '-' }}</td>
+            <td>{{ item.assistant?.name || '-' }}</td>
             <td>{{ item.destination || '-' }}</td>
             <td><VChip size="small" :color="item.status === 'ACTIVE' ? 'success' : 'warning'" label>{{ item.status || '-' }}</VChip></td>
             <td>{{ formatDate(item.created_at) }}</td>
@@ -648,6 +652,14 @@ onMounted(async () => {
               <VCardText>
                 <div class="text-caption text-medium-emphasis mb-1">Driver</div>
                 <div class="text-body-1 text-break">{{ detailItem?.driver?.name || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Assistant</div>
+                <div class="text-body-1 text-break">{{ detailItem?.assistant?.name || '-' }}</div>
               </VCardText>
             </VCard>
           </VCol>

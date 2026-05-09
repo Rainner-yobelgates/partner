@@ -313,13 +313,6 @@ export class TripSheetService {
         });
       }
 
-      if (tripSheet.public_submitted_at) {
-        throw new BadRequestException({
-          success: false,
-          message: 'Surat jalan dari link ini sudah pernah diisi dan tidak dapat diubah lagi.',
-        });
-      }
-
       if (dto.driver_id) await this.validateDriver(dto.driver_id, 'Driver');
       if (dto.assistant_id) await this.validateDriver(dto.assistant_id, 'Assistant driver');
 

@@ -11,8 +11,8 @@ import {
 } from '@/utils/money-input'
 
 type TripSheetPublicForm = {
-  driver_id: string
-  assistant_id: string
+  driver_id: string | null
+  assistant_id: string | null
   fuel_cost: string
   toll_fee: string
   parking_fee: string
@@ -46,8 +46,8 @@ const maxAttachmentSizeMb = 5
 const maxAttachmentCount = 15
 
 const form = ref<TripSheetPublicForm>({
-  driver_id: '',
-  assistant_id: '',
+  driver_id: null,
+  assistant_id: null,
   fuel_cost: '',
   toll_fee: '',
   parking_fee: '',
@@ -201,15 +201,17 @@ const parseMoneyPayload = (): ParsedMoneyPayload | null => {
   }
 }
 
+const getTrimmedValue = (value: string | null | undefined) => String(value ?? '').trim()
+
 const buildFormData = (moneyPayload: ParsedMoneyPayload) => {
   const data = new FormData()
   const existing = existingAttachments.value.filter((item) => item && item.trim())
 
-  if (form.value.driver_id.trim())
-    data.append('driver_id', form.value.driver_id.trim())
+  const driverId = getTrimmedValue(form.value.driver_id)
+  data.append('driver_id', driverId)
 
-  if (form.value.assistant_id.trim())
-    data.append('assistant_id', form.value.assistant_id.trim())
+  const assistantId = getTrimmedValue(form.value.assistant_id)
+  data.append('assistant_id', assistantId)
 
   if (moneyPayload.fuel_cost !== undefined)
     data.append('fuel_cost', moneyPayload.fuel_cost)
@@ -341,8 +343,8 @@ const loadTripSheet = async () => {
     clearNewAttachments()
     existingAttachments.value = parseAttachmentValue(response.data.attachment)
     form.value = {
-      driver_id: response.data.driver_id || '',
-      assistant_id: response.data.assistant_id || '',
+      driver_id: response.data.driver_id || null,
+      assistant_id: response.data.assistant_id || null,
       fuel_cost: fromMoneyResponse(response.data.fuel_cost),
       toll_fee: fromMoneyResponse(response.data.toll_fee),
       parking_fee: fromMoneyResponse(response.data.parking_fee),
@@ -384,11 +386,6 @@ const fetchDriverOptions = async () => {
 const submitForm = async () => {
   if (isSubmitting.value || !uuid.value)
     return
-
-  if (isPublicLocked.value) {
-    showToast('Surat jalan dari link ini sudah pernah diisi.', 'error')
-    return
-  }
 
   if (!validateAttachments())
     return
@@ -440,14 +437,6 @@ onBeforeUnmount(() => {
       <VCardText>
         <VAlert v-if="isLoading" type="info" variant="tonal">Memuat data surat jalan...</VAlert>
         <VAlert v-else-if="!tripSheet" type="error" variant="tonal">Surat jalan tidak ditemukan.</VAlert>
-        <VAlert
-          v-else-if="isPublicLocked"
-          type="success"
-          variant="tonal"
-          class="mb-4"
-        >
-          Form dari link ini sudah pernah diisi pada {{ formatDate(tripSheet.public_submitted_at) }} dan tidak dapat diubah lagi.
-        </VAlert>
 
         <VRow v-if="tripSheet" class="mb-4">
           <VCol cols="12" md="3">
@@ -493,7 +482,7 @@ onBeforeUnmount(() => {
             <VCol cols="12" md="3">
               <VSelect
                 v-model="form.driver_id"
-                :disabled="isPublicLocked || isSubmitting"
+                :disabled="isSubmitting"
                 label="Driver"
                 :items="driverOptions"
                 item-title="title"
@@ -505,7 +494,7 @@ onBeforeUnmount(() => {
             <VCol cols="12" md="3">
               <VSelect
                 v-model="form.assistant_id"
-                :disabled="isPublicLocked || isSubmitting"
+                :disabled="isSubmitting"
                 label="Assistant"
                 :items="assistantOptions"
                 item-title="title"
@@ -514,11 +503,11 @@ onBeforeUnmount(() => {
                 clearable
               />
             </VCol>
-            <VCol cols="12" md="6"><VSelect v-model="form.status" :disabled="isPublicLocked || isSubmitting" label="Status" :items="['ACTIVE', 'INACTIVE']" /></VCol>
+            <VCol cols="12" md="6"><VSelect v-model="form.status" :disabled="isSubmitting" label="Status" :items="['ACTIVE', 'INACTIVE']" /></VCol>
             <VCol cols="12" md="3">
               <VTextField
                 v-model="form.fuel_cost"
-                :disabled="isPublicLocked || isSubmitting"
+                :disabled="isSubmitting"
                 label="Biaya BBM"
                 type="text"
                 inputmode="decimal"
@@ -532,7 +521,7 @@ onBeforeUnmount(() => {
             <VCol cols="12" md="3">
               <VTextField
                 v-model="form.toll_fee"
-                :disabled="isPublicLocked || isSubmitting"
+                :disabled="isSubmitting"
                 label="Biaya Tol"
                 type="text"
                 inputmode="decimal"
@@ -546,7 +535,7 @@ onBeforeUnmount(() => {
             <VCol cols="12" md="3">
               <VTextField
                 v-model="form.parking_fee"
-                :disabled="isPublicLocked || isSubmitting"
+                :disabled="isSubmitting"
                 label="Biaya Parkir"
                 type="text"
                 inputmode="decimal"
@@ -560,7 +549,7 @@ onBeforeUnmount(() => {
             <VCol cols="12" md="3">
               <VTextField
                 v-model="form.stay_cost"
-                :disabled="isPublicLocked || isSubmitting"
+                :disabled="isSubmitting"
                 label="Biaya Inap"
                 type="text"
                 inputmode="decimal"
@@ -574,7 +563,7 @@ onBeforeUnmount(() => {
             <VCol cols="12" md="3">
               <VTextField
                 v-model="form.others"
-                :disabled="isPublicLocked || isSubmitting"
+                :disabled="isSubmitting"
                 label="Biaya lain-lain"
                 type="text"
                 inputmode="decimal"
@@ -599,7 +588,7 @@ onBeforeUnmount(() => {
                     color="primary"
                     variant="outlined"
                     prepend-icon="ri-image-add-line"
-                    :disabled="isPublicLocked || isSubmitting || newAttachments.length >= maxAttachmentCount"
+                    :disabled="isSubmitting || newAttachments.length >= maxAttachmentCount"
                     @click="openAttachmentPicker"
                   >
                     Tambah Gambar
@@ -607,7 +596,7 @@ onBeforeUnmount(() => {
                   <VBtn
                     variant="text"
                     color="secondary"
-                    :disabled="isPublicLocked || isSubmitting || !newAttachments.length"
+                    :disabled="isSubmitting || !newAttachments.length"
                     @click="clearNewAttachments"
                   >
                     Hapus Semua Baru
@@ -621,7 +610,7 @@ onBeforeUnmount(() => {
                 type="file"
                 accept="image/*"
                 multiple
-                :disabled="isPublicLocked || isSubmitting"
+                :disabled="isSubmitting"
                 @change="onAttachmentInputChange"
               >
 
@@ -648,7 +637,7 @@ onBeforeUnmount(() => {
                         size="small"
                         variant="text"
                         color="error"
-                        :disabled="isPublicLocked || isSubmitting"
+                        :disabled="isSubmitting"
                         @click="removeNewAttachment(index)"
                       >
                         Hapus
@@ -674,7 +663,7 @@ onBeforeUnmount(() => {
                         <VBtn size="small" variant="text" :href="item" target="_blank" rel="noopener">Lihat</VBtn>
                         <VSpacer />
                         <VBtn
-                          v-if="!isPublicLocked"
+                          
                           size="small"
                           variant="text"
                           color="error"
@@ -690,11 +679,11 @@ onBeforeUnmount(() => {
               </div>
             </VCol>
 
-            <VCol cols="12"><VTextarea v-model="form.expense_notes" :disabled="isPublicLocked || isSubmitting" label="Catatan Biaya" rows="2" /></VCol>
+            <VCol cols="12"><VTextarea v-model="form.expense_notes" :disabled="isSubmitting" label="Catatan Biaya" rows="2" /></VCol>
           </VRow>
 
           <div class="d-flex justify-end mt-4">
-            <VBtn type="submit" color="primary" :loading="isSubmitting" :disabled="isSubmitting || isPublicLocked">Simpan</VBtn>
+            <VBtn type="submit" color="primary" :loading="isSubmitting" :disabled="isSubmitting">Simpan</VBtn>
           </div>
         </VForm>
       </VCardText>
