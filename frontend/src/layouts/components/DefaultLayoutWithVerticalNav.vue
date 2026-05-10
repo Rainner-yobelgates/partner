@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import NavItems from '@/layouts/components/NavItems.vue'
-import logo from '@images/logo.svg?raw'
+import logo from '@images/logo.png'
 import VerticalNavLayout from '@layouts/components/VerticalNavLayout.vue'
 
 // Components
@@ -35,16 +35,11 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
         to="/"
         class="app-logo app-title-wrapper"
       >
-        <!-- eslint-disable vue/no-v-html -->
-        <div
-          class="d-flex"
-          v-html="logo"
+        <VImg
+          :src="logo"
+          height="40"
+          width="40"
         />
-        <!-- eslint-enable -->
-
-        <h1 class="font-weight-medium leading-normal text-xl text-uppercase">
-          Partner
-        </h1>
       </RouterLink>
 
       <IconBtn
@@ -82,7 +77,28 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
 .app-logo {
   display: flex;
   align-items: center;
-  column-gap: 0.75rem;
+  justify-content: center;
+  width: 100%;
+  padding: 1rem 0.5rem;
+  margin-bottom: 0.5rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  text-decoration: none;
+
+  &:hover {
+    background-color: rgba(var(--v-theme-primary), 0.08);
+  }
+
+  img {
+    object-fit: contain;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.1));
+    transition: all 0.3s ease;
+  }
+
+  &:hover img {
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+    transform: scale(1.05);
+  }
 
   .app-logo-title {
     font-size: 1.25rem;

@@ -188,14 +188,29 @@ const getTodayDateInput = () => {
   return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`
 }
 const toInputDate = (value?: string | null) => value ? new Date(value).toISOString().slice(0, 10) : ''
+
+// Extract time from ISO datetime string without timezone conversion
+const extractTimeFromISO = (isoString: string): string => {
+  const match = isoString.match(/T(\d{2}):(\d{2})/)
+  return match ? `${match[1]}:${match[2]}` : ''
+}
+
 const toInputTime = (value?: string | null) => {
   if (!value)
     return getCurrentTimeInput()
 
+  // Try to extract time from ISO string first (safer than Date object)
+  if (typeof value === 'string' && value.includes('T')) {
+    const extractedTime = extractTimeFromISO(value)
+    if (extractedTime)
+      return extractedTime
+  }
+
+  // Fallback to Date parsing
   const date = new Date(value)
   return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`
 }
-const buildStandbyDateTime = (time: string) => time ? `${getTodayDateInput()}T${time}` : undefined
+const buildStandbyDateTime = (time: string) => time ? `${getTodayDateInput()}T${time}:00` : undefined
 
 const formatDate = (value?: string | null) => {
   if (!value)

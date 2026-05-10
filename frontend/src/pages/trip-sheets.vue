@@ -99,11 +99,15 @@ const appendSelectedOption = (
 }
 
 const driverOptions = computed(() =>
-  appendSelectedOption(baseDriverOptions.value, form.value.driver_id, editedItem.value?.driver?.name),
+  form.value.driver_id
+    ? appendSelectedOption(baseDriverOptions.value, form.value.driver_id, editedItem.value?.driver?.name)
+    : baseDriverOptions.value,
 )
 
 const assistantOptions = computed(() =>
-  appendSelectedOption(baseDriverOptions.value, form.value.assistant_id, editedItem.value?.assistant?.name),
+  form.value.assistant_id
+    ? appendSelectedOption(baseDriverOptions.value, form.value.assistant_id, editedItem.value?.assistant?.name)
+    : baseDriverOptions.value,
 )
 
 const showToast = (text: string, color: 'success' | 'error' = 'success') => {

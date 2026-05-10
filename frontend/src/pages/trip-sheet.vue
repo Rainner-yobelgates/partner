@@ -2,13 +2,14 @@
 import { useRoute } from 'vue-router'
 import { ApiError } from '@/services/http'
 import { tripSheetService, type TripSheetItem } from '@/services/trip-sheets'
-import { driverMasterService, type DriverItem, type MasterStatus } from '@/services/masters'
+import { getPublicDriverList, type DriverItem, type MasterStatus } from '@/services/masters'
 import {
   blockKeysNonDecimalMoney,
   onPasteSanitizedDecimalMoney,
   parseOptionalApiDecimalMoney,
   sanitizeDecimalMoneyInput,
 } from '@/utils/money-input'
+import logo from '@images/logo.png'
 
 type TripSheetPublicForm = {
   driver_id: string | null
@@ -83,11 +84,15 @@ const appendSelectedOption = (
 }
 
 const driverOptions = computed(() =>
-  appendSelectedOption(baseDriverOptions.value, form.value.driver_id, tripSheet.value?.driver?.name),
+  form.value.driver_id
+    ? appendSelectedOption(baseDriverOptions.value, form.value.driver_id, tripSheet.value?.driver?.name)
+    : baseDriverOptions.value,
 )
 
 const assistantOptions = computed(() =>
-  appendSelectedOption(baseDriverOptions.value, form.value.assistant_id, tripSheet.value?.assistant?.name),
+  form.value.assistant_id
+    ? appendSelectedOption(baseDriverOptions.value, form.value.assistant_id, tripSheet.value?.assistant?.name)
+    : baseDriverOptions.value,
 )
 
 const showToast = (text: string, color: 'success' | 'error' = 'success') => {
@@ -136,6 +141,14 @@ const formatTimeOnly = (value?: string | null) => {
   if (!value)
     return '-'
 
+  // Try to extract time from ISO string first (safer than Date object)
+  if (typeof value === 'string' && value.includes('T')) {
+    const match = value.match(/T(\d{2}):(\d{2})/)
+    if (match)
+      return `${match[1]}:${match[2]}`
+  }
+
+  // Fallback to Intl.DateTimeFormat
   return new Intl.DateTimeFormat('id-ID', {
     hour: '2-digit',
     minute: '2-digit',
@@ -367,7 +380,7 @@ const fetchDriverOptions = async () => {
   isDriverOptionsLoading.value = true
 
   try {
-    const response = await driverMasterService.list({
+    const response = await getPublicDriverList({
       page: 1,
       perPage: 200,
       sortBy: 'created_at',
@@ -377,6 +390,7 @@ const fetchDriverOptions = async () => {
   }
   catch (error) {
     console.error('[pages/trip-sheet.vue]', error)
+    showToast(getErrorMessage(error), 'error')
   }
   finally {
     isDriverOptionsLoading.value = false
@@ -427,9 +441,18 @@ onBeforeUnmount(() => {
     <VCard max-width="980" class="w-100">
       <VCardItem>
         <template #title>
-          <div class="d-flex flex-column gap-1">
-            <span class="text-h6">Surat Jalan Driver</span>
-            <span class="text-sm text-medium-emphasis">Silakan lengkapi data perjalanan di bawah ini.</span>
+          <div class="d-flex align-center gap-2">
+            <VImg
+              :src="logo"
+              height="40"
+              width="40"
+              class="rounded flex-shrink-0"
+              style="filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.1))"
+            />
+            <div class="d-flex flex-column">
+              <span class="text-h6 font-weight-600 mb-0 lh-1">Surat Jalan Driver</span>
+              <span class="text-xs text-medium-emphasis mt-0">Lengkapi data perjalanan</span>
+            </div>
           </div>
         </template>
       </VCardItem>

@@ -1,4 +1,4 @@
-import { createMasterCrudService } from './master-crud.service'
+import { createMasterCrudService, type MasterListQuery, type MasterListResponse } from './master-crud.service'
 import { request } from './http'
 
 export type MasterStatus = 'ACTIVE' | 'INACTIVE'
@@ -381,3 +381,19 @@ export const contractMasterService = createMasterCrudService<ContractItem, Contr
 export const shuttleMasterService = createMasterCrudService<ShuttleItem, ShuttlePayload, ShuttlePayload>('shuttles')
 export const facilityMasterService = createMasterCrudService<FacilityItem, FacilityPayload, FacilityPayload>('facilities')
 export const vehicleServiceMasterService = createMasterCrudService<VehicleServiceItem, VehicleServicePayload, VehicleServicePayload>('vehicle-services')
+
+// Públic API para obter lista de drivers (sem autenticação)
+export const getPublicDriverList = (query: MasterListQuery) => {
+  const params = new URLSearchParams()
+  params.set('page', String(query.page))
+  params.set('perPage', String(query.perPage))
+  
+  if (query.search)
+    params.set('search', query.search)
+  if (query.sortBy)
+    params.set('sortBy', query.sortBy)
+  if (query.sortOrder)
+    params.set('sortOrder', query.sortOrder)
+
+  return request<MasterListResponse<DriverItem>>(`/drivers/public/list?${params.toString()}`, { method: 'GET' })
+}

@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 
-import logo from '@images/logo.svg?raw'
+import logo from '@images/logo.png'
 import authV1MaskDark from '@images/pages/auth-v1-mask-dark.png'
 import authV1MaskLight from '@images/pages/auth-v1-mask-light.png'
 import authV1Tree2 from '@images/pages/auth-v1-tree-2.png'
@@ -60,18 +60,17 @@ const handleLogin = async () => {
       class="auth-card pa-4 pt-7"
       max-width="448"
     >
-      <VCardItem class="justify-center">
+      <VCardItem class="justify-center py-6">
         <RouterLink
           to="/"
-          class="d-flex align-center gap-3"
+          class="d-flex align-center justify-center"
         >
-          <!-- <div
-            class="d-flex"
-            v-html="logo"
-          /> -->
-          <h2 class="font-weight-medium text-2xl text-uppercase">
-            Partner
-          </h2>
+          <VImg
+            :src="logo"
+            height="60"
+            width="60"
+            class="logo-img"
+          />
         </RouterLink>
       </VCardItem>
 
@@ -153,6 +152,17 @@ const handleLogin = async () => {
 
 <style lang="scss">
 @use "@core/scss/template/pages/page-auth";
+
+.logo-img {
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.12));
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.16));
+    transform: scale(1.03);
+  }
+}
 </style>
 
 
