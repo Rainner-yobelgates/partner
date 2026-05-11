@@ -439,19 +439,35 @@ onBeforeUnmount(() => {
 <template>
   <div class="py-8 px-4 d-flex justify-center">
     <VCard max-width="980" class="w-100">
-      <VCardItem>
+      <VCardItem class="pb-0">
         <template #title>
-          <div class="d-flex align-center gap-2">
-            <VImg
-              :src="logo"
-              height="40"
-              width="40"
-              class="rounded flex-shrink-0"
-              style="filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.1))"
-            />
-            <div class="d-flex flex-column">
-              <span class="text-h6 font-weight-600 mb-0 lh-1">Surat Jalan Driver</span>
-              <span class="text-xs text-medium-emphasis mt-0">Lengkapi data perjalanan</span>
+          <div class="d-flex align-center gap-3">
+            <div
+              class="d-flex align-center justify-center flex-shrink-0 rounded-lg"
+              style="
+                width: 48px;
+                height: 48px;
+                background-color: rgba(var(--v-theme-primary), 0.08);
+              "
+            >
+              <VImg
+                :src="logo"
+                width="36"
+                height="36"
+                cover
+                class="rounded"
+                style="filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.12));"
+              />
+            </div>
+
+            <div class="d-flex flex-column justify-center">
+              <span class="text-h6 font-weight-bold leading-tight">
+                Surat Jalan Driver
+              </span>
+
+              <span class="text-caption text-medium-emphasis mt-1">
+                Lengkapi data perjalanan
+              </span>
             </div>
           </div>
         </template>

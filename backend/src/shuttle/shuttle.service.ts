@@ -10,6 +10,7 @@ import { normalizeUserId } from 'src/utils/normalize-user-id.util';
 import { Prisma } from 'generated/prisma/client';
 import { decimalToMoneyString, toPrismaDecimal } from 'src/utils/money.util';
 import { normalizePrismaCount } from 'src/utils/pagination-total.util';
+import { throwServiceError } from 'src/utils/service-error.util';
 
 const shuttleListSelect = {
   id: true,
@@ -386,13 +387,7 @@ export class ShuttleService {
     };
   }
 
-  private handleError(error: unknown) {
-    if (error instanceof Array) {
-      return { success: false, message: 'Validation failed', errors: error };
-    }
-    if (error instanceof Error) {
-      return { success: false, message: error.message || 'Operation failed', error: error.message };
-    }
-    return { success: false, message: 'Operation failed', error: 'Unknown error' };
+  private handleError(error: unknown): never {
+    throwServiceError(error);
   }
 }

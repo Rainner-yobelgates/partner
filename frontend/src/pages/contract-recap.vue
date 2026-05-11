@@ -45,7 +45,7 @@ const isLoading = ref(false)
 const clients = ref<ContractRecapClientOption[]>([])
 const recapRow = ref<ContractRecapRow | null>(null)
 
-const snackbar = ref({ show: false, color: 'success' as const, text: '' })
+const snackbar = ref<{ show: boolean; color: 'success' | 'error'; text: string }>({ show: false, color: 'success', text: '' })
 
 const showToast = (text: string, color: 'success' | 'error' = 'success') => {
   snackbar.value = { show: true, color, text }

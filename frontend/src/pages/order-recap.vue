@@ -20,7 +20,7 @@ const filterMeta = ref<{ created_from: string; created_to_before: string } | nul
 const isDetailDialogOpen = ref(false)
 const detailRow = ref<OrderRecapRow | null>(null)
 
-const snackbar = ref({ show: false, color: 'success' as const, text: '' })
+const snackbar = ref<{ show: boolean; color: 'success' | 'error'; text: string }>({ show: false, color: 'success', text: '' })
 
 const monthItems = [
   { title: 'Januari', value: 1 },

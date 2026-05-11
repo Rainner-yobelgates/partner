@@ -8,6 +8,9 @@ import { CreateDriverDto, QueryDriverDto, UpdateDriverDto } from './dto/driver.d
 import { CurrentUserType } from 'src/decorator/current-user.decorator';
 import { normalizeUserId } from 'src/utils/normalize-user-id.util';
 import { normalizePrismaCount } from 'src/utils/pagination-total.util';
+import { throwServiceError } from 'src/utils/service-error.util';
+
+const DRIVER_LIST_SORT_FIELDS = ['created_at', 'updated_at', 'name', 'phone_number', 'type', 'status'] as const;
 
 @Injectable()
 export class DriverService {
@@ -20,8 +23,10 @@ export class DriverService {
     const page = Number(query.page) || 1;
     const perPage = Number(query.perPage) || 10;
     const skip = (page - 1) * perPage;
-    const sortBy = query.sortBy || 'created_at';
-    const sortOrder = query.sortOrder || 'desc';
+    const sortBy = DRIVER_LIST_SORT_FIELDS.includes(query.sortBy as (typeof DRIVER_LIST_SORT_FIELDS)[number])
+      ? query.sortBy!
+      : 'created_at';
+    const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
 
     try {
       const where = {
@@ -299,27 +304,7 @@ export class DriverService {
   // ──────────────────────────────────────────
   // HELPER: Error Handler
   // ──────────────────────────────────────────
-  private handleError(error: unknown) {
-    if (error instanceof Array) {
-      return {
-        success: false,
-        message: 'Validation failed',
-        errors: error,
-      };
-    }
-
-    if (error instanceof Error) {
-      return {
-        success: false,
-        message: 'Operation failed',
-        error: error.message,
-      };
-    }
-
-    return {
-      success: false,
-      message: 'Operation failed',
-      error: 'Unknown error',
-    };
+  private handleError(error: unknown): never {
+    throwServiceError(error);
   }
 }

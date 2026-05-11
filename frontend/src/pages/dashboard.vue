@@ -31,7 +31,7 @@ const totalFinancial = ref<DashboardTotalFinancial | null>(null)
 const isLoading = ref(false)
 const isInitialized = ref(false)
 
-const snackbar = ref({ show: false, color: 'success' as const, text: '' })
+const snackbar = ref<{ show: boolean; color: 'success' | 'error'; text: string }>({ show: false, color: 'success', text: '' })
 
 const yearItems = computed(() => {
   const y = now.getFullYear()

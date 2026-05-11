@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { RouteModule } from './route.module';
 import { RouteController } from './route.controller';
 
 describe('RouteController', () => {
@@ -6,7 +7,7 @@ describe('RouteController', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [RouteController],
+      imports: [RouteModule],
     }).compile();
 
     controller = module.get<RouteController>(RouteController);

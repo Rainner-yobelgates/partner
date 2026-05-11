@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { RouteModule } from './route.module';
 import { RouteService } from './route.service';
 
 describe('RouteService', () => {
@@ -6,7 +7,7 @@ describe('RouteService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RouteService],
+      imports: [RouteModule],
     }).compile();
 
     service = module.get<RouteService>(RouteService);

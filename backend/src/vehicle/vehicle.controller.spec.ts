@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { VehicleModule } from './vehicle.module';
 import { VehicleController } from './vehicle.controller';
 
 describe('VehicleController', () => {
@@ -6,7 +7,7 @@ describe('VehicleController', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [VehicleController],
+      imports: [VehicleModule],
     }).compile();
 
     controller = module.get<VehicleController>(VehicleController);

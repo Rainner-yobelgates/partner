@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from 'generated/prisma/client';
@@ -11,6 +10,7 @@ import { CurrentUserType } from 'src/decorator/current-user.decorator';
 import { normalizeUserId } from 'src/utils/normalize-user-id.util';
 import { decimalToMoneyString, toPrismaDecimal } from 'src/utils/money.util';
 import { normalizePrismaCount } from 'src/utils/pagination-total.util';
+import { throwServiceError } from 'src/utils/service-error.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto, QueryOrderDto, UpdateOrderDto } from './dto/order.dto';
 import { QueryOrderRecapDto } from './dto/order-recap.dto';
@@ -845,12 +845,6 @@ export class OrderService {
   }
 
   private handleError(error: unknown): never {
-    if (error instanceof InternalServerErrorException)
-      throw error;
-
-    if (error instanceof Error)
-      throw new InternalServerErrorException(error.message);
-
-    throw new InternalServerErrorException('Operation failed');
+    throwServiceError(error);
   }
 }

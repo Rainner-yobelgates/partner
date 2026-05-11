@@ -8,7 +8,10 @@ import { CreateRoleDto, QueryRoleDto, UpdateRoleDto } from './dto/role.dto';
 import { CurrentUserType } from 'src/decorator/current-user.decorator';
 import { normalizeUserId } from 'src/utils/normalize-user-id.util';
 import { normalizePrismaCount } from 'src/utils/pagination-total.util';
+import { throwServiceError } from 'src/utils/service-error.util';
 import { UpdateRolePermissionsDto } from './dto/role-permission.dto';
+
+const ROLE_LIST_SORT_FIELDS = ['created_at', 'updated_at', 'name', 'status'] as const;
 
 @Injectable()
 export class RolesService {
@@ -18,8 +21,10 @@ export class RolesService {
     const page = Number(query.page) || 1;
     const perPage = Number(query.perPage) || 10;
     const skip = (page - 1) * perPage;
-    const sortBy = query.sortBy || 'created_at';
-    const sortOrder = query.sortOrder || 'desc';
+    const sortBy = ROLE_LIST_SORT_FIELDS.includes(query.sortBy as (typeof ROLE_LIST_SORT_FIELDS)[number])
+      ? query.sortBy!
+      : 'created_at';
+    const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
 
     try {
       const [data, totalRaw] = await this.prisma.db.$transaction([
@@ -469,27 +474,7 @@ export class RolesService {
     }
   }
 
-  private handleError(error: unknown) {
-    if (error instanceof Array) {
-      return {
-        success: false,
-        message: 'Validation failed',
-        errors: error,
-      };
-    }
-
-    if (error instanceof Error) {
-      return {
-        success: false,
-        message: 'Operation failed',
-        error: error.message,
-      };
-    }
-
-    return {
-      success: false,
-      message: 'Operation failed',
-      error: 'Unknown error',
-    };
+  private handleError(error: unknown): never {
+    throwServiceError(error);
   }
 }

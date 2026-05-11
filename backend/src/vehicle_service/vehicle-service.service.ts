@@ -12,6 +12,7 @@ import { CurrentUserType } from 'src/decorator/current-user.decorator';
 import { normalizeUserId } from 'src/utils/normalize-user-id.util';
 import { decimalToMoneyString, toPrismaDecimal } from 'src/utils/money.util';
 import { normalizePrismaCount } from 'src/utils/pagination-total.util';
+import { throwServiceError } from 'src/utils/service-error.util';
 
 @Injectable()
 export class VehicleServiceService {
@@ -308,13 +309,7 @@ export class VehicleServiceService {
   // ──────────────────────────────────────────
   // HELPER: Error Handler
   // ──────────────────────────────────────────
-  private handleError(error: unknown) {
-    if (error instanceof Array) {
-      return { success: false, message: 'Validation failed', errors: error };
-    }
-    if (error instanceof Error) {
-      return { success: false, message: 'Operation failed', error: error.message };
-    }
-    return { success: false, message: 'Operation failed', error: 'Unknown error' };
+  private handleError(error: unknown): never {
+    throwServiceError(error);
   }
 }
