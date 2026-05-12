@@ -291,7 +291,7 @@ onMounted(async () => {
   <VRow>
     <VCol cols="12">
       <VCard>
-        <VCardItem title="Summary Master Data" />
+        <VCardItem title="Overview Master Data" />
         <VCardText>
           <VRow>
             <VCol cols="12" sm="6" md="4" lg="2">
