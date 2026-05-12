@@ -27,6 +27,7 @@ type OrderForm = {
   pickup_location: string
   destination: string
   total_amount: string
+  driver_allowance: string
   status: OrderStatus
   notes: string
 }
@@ -85,6 +86,7 @@ const form = ref<OrderForm>({
   pickup_location: '',
   destination: '',
   total_amount: '',
+  driver_allowance: '',
   status: 'PENDING',
   notes: '',
 })
@@ -165,6 +167,9 @@ const formatMoneyTable = (value?: string | null) => formatRupiahPlain(value)
 
 const onTotalAmountInput = (v: string) => {
   form.value.total_amount = sanitizeDecimalMoneyInput(String(v ?? ''))
+}
+const onDriverAllowanceInput = (v: string) => {
+  form.value.driver_allowance = sanitizeDecimalMoneyInput(String(v ?? ''))
 }
 
 const showToast = (text: string, color: 'success' | 'error' = 'success') => {
@@ -321,6 +326,7 @@ const resetForm = () => {
     pickup_location: '',
     destination: '',
     total_amount: '',
+    driver_allowance: '',
     status: 'PENDING',
     notes: '',
   }
@@ -358,6 +364,7 @@ const fillFormFromOrder = (item: OrderItem) => {
     pickup_location: item.pickup_location || '',
     destination: getDestination(item) || '',
     total_amount: item.total_amount?.trim() ? item.total_amount : '',
+    driver_allowance: item.driver_allowance?.trim() ? item.driver_allowance : '',
     status: item.status || 'PENDING',
     notes: item.notes || '',
   }
@@ -387,6 +394,7 @@ const openEditDialog = async (item: OrderItem) => {
 
 const buildPayload = (): OrderPayload => {
   const totalAmountPayload = parseOptionalApiDecimalMoney(form.value.total_amount)
+  const driverAllowancePayload = parseOptionalApiDecimalMoney(form.value.driver_allowance)
 
   return {
     order_number: form.value.order_number.trim() || undefined,
@@ -402,6 +410,7 @@ const buildPayload = (): OrderPayload => {
     destination: form.value.destination.trim() || undefined,
     dropoff_location: form.value.destination.trim() || undefined,
     ...(totalAmountPayload !== undefined && totalAmountPayload !== '__invalid__' && { total_amount: totalAmountPayload }),
+    ...(driverAllowancePayload !== undefined && driverAllowancePayload !== '__invalid__' && { driver_allowance: driverAllowancePayload }),
     status: form.value.status,
     notes: form.value.notes.trim() || undefined,
     vehicles: vehicleAssignments.value
@@ -422,8 +431,13 @@ const submitForm = async () => {
     return
 
   const totalAmountParsed = parseOptionalApiDecimalMoney(form.value.total_amount)
+  const driverAllowanceParsed = parseOptionalApiDecimalMoney(form.value.driver_allowance)
   if (totalAmountParsed === '__invalid__') {
     showToast('Total biaya tidak valid. Hanya angka; titik untuk desimal (maks. 13 digit bulat, 2 desimal).', 'error')
+    return
+  }
+  if (driverAllowanceParsed === '__invalid__') {
+    showToast('Uang jalan tidak valid. Hanya angka; titik untuk desimal (maks. 13 digit bulat, 2 desimal).', 'error')
     return
   }
 
@@ -654,6 +668,18 @@ onMounted(async () => {
                 @keydown="blockKeysNonDecimalMoney"
               />
             </VCol>
+            <VCol cols="12" md="4">
+              <VTextField
+                :model-value="form.driver_allowance"
+                label="Uang Jalan"
+                placeholder="250000.00"
+                inputmode="decimal"
+                autocomplete="off"
+                persistent-hint
+                @update:model-value="onDriverAllowanceInput"
+                @keydown="blockKeysNonDecimalMoney"
+              />
+            </VCol>
             <VCol cols="12" md="6"><VTextField v-model="form.pickup_location" label="Pickup Location" /></VCol>
             <VCol cols="12" md="6"><VTextField v-model="form.destination" label="Tujuan" /></VCol>
             <VCol cols="12" md="4"><VSelect v-model="form.status" label="Status" :items="['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED']" /></VCol>
@@ -820,6 +846,14 @@ onMounted(async () => {
             <VCol cols="12" md="4">
               <VCard variant="tonal" class="h-100">
                 <VCardText>
+                  <div class="text-caption text-medium-emphasis mb-1">Uang Jalan</div>
+                  <div class="text-body-1 font-weight-medium text-break">{{ formatMoneyId(detailItem.driver_allowance) }}</div>
+                </VCardText>
+              </VCard>
+            </VCol>
+            <VCol cols="12" md="4">
+              <VCard variant="tonal" class="h-100">
+                <VCardText>
                   <div class="text-caption text-medium-emphasis mb-1">Status</div>
                   <div class="text-body-1 font-weight-medium text-break">{{ detailItem.status || '-' }}</div>
                 </VCardText>
@@ -894,5 +928,3 @@ onMounted(async () => {
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
-
-

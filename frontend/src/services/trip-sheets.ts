@@ -13,6 +13,7 @@ export type TripSheetItem = {
   parking_fee?: string | null
   stay_cost?: string | null
   others?: string | null
+  driver_allowance?: string | null
   expense_notes?: string | null
   attachment?: string | null
   status?: MasterStatus | null
@@ -31,6 +32,7 @@ export type TripSheetItem = {
       start_date?: string | null
       finish_date?: string | null
       destination?: string | null
+      driver_allowance?: string | null
       dropoff_location?: string | null
     } | null
     vehicle?: { id: string; plate_number?: string | null; vehicle_type?: string | null } | null
@@ -48,6 +50,7 @@ export type TripSheetPayload = {
   parking_fee?: string
   stay_cost?: string
   others?: string
+  driver_allowance?: string
   expense_notes?: string
   attachment?: string
   status?: MasterStatus
@@ -61,6 +64,7 @@ export type TripSheetPublicPayload = {
   parking_fee?: string
   stay_cost?: string
   others?: string
+  driver_allowance?: string
   expense_notes?: string
   attachment?: string
   status?: MasterStatus

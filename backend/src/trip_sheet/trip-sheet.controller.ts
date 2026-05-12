@@ -174,6 +174,7 @@ export class TripSheetController {
         toll_fee: { type: 'string', example: '45000.00', description: 'DECIMAL 15,2' },
         parking_fee: { type: 'string', example: '20000.00', description: 'DECIMAL 15,2' },
         stay_cost: { type: 'string', example: '120000.00', description: 'DECIMAL 15,2' },
+        driver_allowance: { type: 'string', example: '250000.00', description: 'DECIMAL 15,2' },
         expense_notes: { type: 'string', example: 'BBM Pertamax + tol lingkar luar' },
         status: { type: 'string', enum: Object.values(Status) },
         attachment: { type: 'string', example: '["https://files.example.com/bukti.jpg"]' },

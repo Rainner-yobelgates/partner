@@ -20,11 +20,12 @@ type TripSheetForm = {
   parking_fee: string
   stay_cost: string
   others: string
+  driver_allowance: string
   expense_notes: string
   status: MasterStatus
 }
 
-type MoneyField = 'fuel_cost' | 'toll_fee' | 'parking_fee' | 'stay_cost' | 'others'
+type MoneyField = 'fuel_cost' | 'toll_fee' | 'parking_fee' | 'stay_cost' | 'others' | 'driver_allowance'
 type ParsedMoneyPayload = Partial<Record<MoneyField, string>>
 
 const authStore = useAuthStore()
@@ -69,6 +70,7 @@ const form = ref<TripSheetForm>({
   parking_fee: '',
   stay_cost: '',
   others: '',
+  driver_allowance: '',
   expense_notes: '',
   status: 'ACTIVE',
 })
@@ -174,6 +176,7 @@ const parseMoneyPayload = (): ParsedMoneyPayload | null => {
   const parsedParking = parseOptionalApiDecimalMoney(form.value.parking_fee)
   const parsedStay = parseOptionalApiDecimalMoney(form.value.stay_cost)
   const parsedOthers = parseOptionalApiDecimalMoney(form.value.others)
+  const parsedDriverAllowance = parseOptionalApiDecimalMoney(form.value.driver_allowance)
 
   if (
     parsedFuel === '__invalid__'
@@ -181,6 +184,7 @@ const parseMoneyPayload = (): ParsedMoneyPayload | null => {
     || parsedParking === '__invalid__'
     || parsedStay === '__invalid__'
     || parsedOthers === '__invalid__'
+    || parsedDriverAllowance === '__invalid__'
   ) {
     showToast('Nilai uang tidak valid. Gunakan desimal non-negatif (maks 13 digit bulat, 2 digit desimal).', 'error')
     return null
@@ -192,6 +196,7 @@ const parseMoneyPayload = (): ParsedMoneyPayload | null => {
     ...(parsedParking !== undefined && { parking_fee: parsedParking }),
     ...(parsedStay !== undefined && { stay_cost: parsedStay }),
     ...(parsedOthers !== undefined && { others: parsedOthers }),
+    ...(parsedDriverAllowance !== undefined && { driver_allowance: parsedDriverAllowance }),
   }
 }
 
@@ -223,6 +228,9 @@ const buildFormData = (moneyPayload: ParsedMoneyPayload) => {
 
   if (moneyPayload.others !== undefined)
     data.append('others', moneyPayload.others)
+
+  if (moneyPayload.driver_allowance !== undefined)
+    data.append('driver_allowance', moneyPayload.driver_allowance)
 
   if (form.value.expense_notes.trim())
     data.append('expense_notes', form.value.expense_notes.trim())
@@ -330,6 +338,7 @@ const openEditDialog = (item: TripSheetItem) => {
     parking_fee: fromMoneyResponse(item.parking_fee),
     stay_cost: fromMoneyResponse(item.stay_cost),
     others: fromMoneyResponse(item.others),
+    driver_allowance: fromMoneyResponse(item.driver_allowance),
     expense_notes: item.expense_notes || '',
     status: item.status || 'ACTIVE',
   }
@@ -583,6 +592,19 @@ onMounted(async () => {
                 @paste="onMoneyFieldPaste('others', $event)"
               />
             </VCol>
+            <VCol cols="12" md="3">
+              <VTextField
+                v-model="form.driver_allowance"
+                label="Uang Jalan"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                :rules="[moneyFieldRule]"
+                @update:model-value="onMoneyFieldInput('driver_allowance', String($event ?? ''))"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onMoneyFieldPaste('driver_allowance', $event)"
+              />
+            </VCol>
             <VCol cols="12" md="6">
               <VFileInput
                 v-model="attachments"
@@ -715,6 +737,14 @@ onMounted(async () => {
               </VCardText>
             </VCard>
           </VCol>
+          <VCol cols="12" md="6">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Uang Jalan</div>
+                <div class="text-body-1 text-break">{{ formatMoneyId(detailItem?.driver_allowance) }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
           <VCol cols="12">
             <VCard variant="tonal">
               <VCardText>
@@ -797,4 +827,3 @@ onMounted(async () => {
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
-

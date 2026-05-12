@@ -9,6 +9,7 @@ import {
   parseOptionalApiDecimalMoney,
   sanitizeDecimalMoneyInput,
 } from '@/utils/money-input'
+import { formatRupiah } from '@/utils/currency'
 import logo from '@images/logo.png'
 
 type TripSheetPublicForm = {
@@ -133,7 +134,6 @@ const formatDate = (value?: string | null) => {
 
   return new Intl.DateTimeFormat('id-ID', {
     dateStyle: 'medium',
-    timeStyle: 'short',
   }).format(new Date(value))
 }
 
@@ -172,6 +172,8 @@ const fromMoneyResponse = (value: string | number | null | undefined) => {
   return s === '' ? '' : s
 }
 
+const formatMoneyId = (value?: string | null) => formatRupiah(value)
+
 const onMoneyFieldInput = (field: MoneyField, value: string) => {
   form.value[field] = sanitizeDecimalMoneyInput(String(value ?? ''))
 }
@@ -193,7 +195,6 @@ const parseMoneyPayload = (): ParsedMoneyPayload | null => {
   const parsedParking = parseOptionalApiDecimalMoney(form.value.parking_fee)
   const parsedStay = parseOptionalApiDecimalMoney(form.value.stay_cost)
   const parsedOthers = parseOptionalApiDecimalMoney(form.value.others)
-
   if (
     parsedFuel === '__invalid__'
     || parsedToll === '__invalid__'
@@ -510,9 +511,13 @@ onBeforeUnmount(() => {
             <div class="text-sm text-medium-emphasis">Finish Date</div>
             <div class="text-body-1 font-weight-medium">{{ formatDate(tripSheet.orderVehicle?.order?.finish_date) }}</div>
           </VCol>
-          <VCol cols="12" md="6">
+          <VCol cols="12" md="3">
             <div class="text-sm text-medium-emphasis">Tujuan (dari Order)</div>
             <div class="text-body-1 font-weight-medium">{{ tripSheet.destination || tripSheet.orderVehicle?.order?.destination || tripSheet.orderVehicle?.order?.dropoff_location || '-' }}</div>
+          </VCol>
+          <VCol cols="12" md="3">
+            <div class="text-sm text-medium-emphasis">Uang Jalan</div>
+            <div class="text-body-1 font-weight-medium">{{ formatMoneyId(tripSheet.driver_allowance) }}</div>
           </VCol>
         </VRow>
 
@@ -613,7 +618,6 @@ onBeforeUnmount(() => {
                 @paste="onMoneyFieldPaste('others', $event)"
               />
             </VCol>
-
             <VCol cols="12">
               <div class="d-flex flex-wrap align-center justify-space-between gap-3 mb-2">
                 <div>

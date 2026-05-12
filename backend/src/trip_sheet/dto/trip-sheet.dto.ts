@@ -39,6 +39,9 @@ export class CreateTripSheetDto {
   @IsMoneyAmountOptional('Biaya lain-lain', '25000.00')
   others?: string;
 
+  @IsMoneyAmountOptional('Uang jalan untuk driver', '250000.00')
+  driver_allowance?: string;
+
   @ApiPropertyOptional({ description: 'Catatan biaya', example: 'BBM Pertamax + tol lingkar luar' })
   @IsOptional()
   @IsString()
@@ -82,6 +85,9 @@ export class UpdateTripSheetPublicDto {
 
   @IsMoneyAmountOptional('Biaya lain-lain', '25000.00')
   others?: string;
+
+  @IsMoneyAmountOptional('Uang jalan untuk driver', '250000.00')
+  driver_allowance?: string;
 
   @ApiPropertyOptional({ description: 'Catatan biaya', example: 'BBM Pertamax + tol lingkar luar' })
   @IsOptional()

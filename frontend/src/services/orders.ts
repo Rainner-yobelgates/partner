@@ -58,6 +58,7 @@ export type OrderItem = {
   dropoff_location?: string | null
   total_vehicles?: number | null
   total_amount?: string | null
+  driver_allowance?: string | null
   status?: OrderStatus | null
   notes?: string | null
   created_at: string
@@ -87,6 +88,7 @@ export type OrderPayload = {
   destination?: string
   dropoff_location?: string
   total_amount?: string
+  driver_allowance?: string
   status?: OrderStatus
   notes?: string
   vehicles?: OrderVehiclePayload[]

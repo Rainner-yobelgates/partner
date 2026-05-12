@@ -444,6 +444,7 @@ model Order {
   destination      String?
   total_vehicles   Int?
   total_amount     Decimal? @db.Decimal(15, 2)
+  driver_allowance Decimal? @db.Decimal(15, 2)
   status           OrderStatus?
   notes            String?
 
@@ -506,6 +507,7 @@ model TripSheet {
   parking_fee      Decimal? @db.Decimal(15, 2)
   stay_cost        Decimal? @db.Decimal(15, 2)
   others           Decimal? @db.Decimal(15, 2)
+  driver_allowance Decimal? @db.Decimal(15, 2)
   expense_notes    String?
   attachment       String?
   status           Status?

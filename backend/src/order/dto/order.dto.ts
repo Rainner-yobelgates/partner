@@ -105,6 +105,9 @@ export class CreateOrderDto {
   @IsMoneyAmountOptional('Total nilai order', '1500000.00')
   total_amount?: string;
 
+  @IsMoneyAmountOptional('Uang jalan untuk driver', '250000.00')
+  driver_allowance?: string;
+
   @ApiPropertyOptional({ description: 'Status order', enum: OrderStatus })
   @IsOptional()
   @IsEnum(OrderStatus)
@@ -176,4 +179,3 @@ export class QueryOrderDto {
   @IsDateString()
   date_to?: string;
 }
-

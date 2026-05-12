@@ -41,8 +41,10 @@ async function bootstrap() {
     .addBearerAuth() // optional: kalau pakai JWT
     .build();
 
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api', app, document);
+    if (process.env.NODE_ENV !== 'production') {
+        const document = SwaggerModule.createDocument(app, config);
+        SwaggerModule.setup('api', app, document);
+    }
 
     resolveUploadRootsForStatic().forEach((uploadRoot) => {
         app.use('/uploads', express.static(uploadRoot));

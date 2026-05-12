@@ -258,6 +258,7 @@ export class OrderService {
             destination: true,
             total_vehicles: true,
             total_amount: true,
+            driver_allowance: true,
             status: true,
             notes: true,
             created_at: true,
@@ -304,6 +305,7 @@ export class OrderService {
           destination: true,
           total_vehicles: true,
           total_amount: true,
+          driver_allowance: true,
           status: true,
           notes: true,
           created_by: true,
@@ -394,6 +396,7 @@ export class OrderService {
             destination: resolvedDropoffLocation,
             total_vehicles: dto.vehicles?.length ?? dto.total_vehicles ?? null,
             total_amount: toPrismaDecimal(dto.total_amount),
+            driver_allowance: toPrismaDecimal(dto.driver_allowance),
             status: dto.status ?? OrderStatus.PENDING,
             notes: dto.notes,
             created_by: userId,
@@ -422,6 +425,7 @@ export class OrderService {
               driver_id: orderVehicle.driver_id,
               assistant_id: orderVehicle.assistant_driver_id,
               destination: order.destination ?? order.dropoff_location,
+              driver_allowance: order.driver_allowance,
               status: Status.ACTIVE,
               created_by: userId,
             },
@@ -451,6 +455,7 @@ export class OrderService {
           destination: true,
           total_vehicles: true,
           total_amount: true,
+          driver_allowance: true,
           status: true,
           notes: true,
           created_at: true,
@@ -517,6 +522,7 @@ export class OrderService {
         dto.start_date !== undefined || dto.finish_date !== undefined || dto.usage_date !== undefined;
       const shouldUpdateDestinationAliases =
         dto.destination !== undefined || dto.dropoff_location !== undefined;
+      const shouldUpdateDriverAllowance = dto.driver_allowance !== undefined;
 
       const result = await this.prisma.db.$transaction(async (tx) => {
         const updated = await tx.order.update({
@@ -535,6 +541,7 @@ export class OrderService {
             ...(shouldUpdateDestinationAliases && { dropoff_location: resolvedDropoffLocation }),
             ...(shouldUpdateDestinationAliases && { destination: resolvedDropoffLocation }),
             ...(dto.total_amount !== undefined && { total_amount: toPrismaDecimal(dto.total_amount) }),
+            ...(dto.driver_allowance !== undefined && { driver_allowance: toPrismaDecimal(dto.driver_allowance) }),
             ...(dto.status !== undefined && { status: dto.status }),
             ...(dto.notes !== undefined && { notes: dto.notes }),
             ...(dto.vehicles !== undefined && { total_vehicles: dto.vehicles.length }),
@@ -583,13 +590,14 @@ export class OrderService {
                 driver_id: orderVehicle.driver_id,
                 assistant_id: orderVehicle.assistant_driver_id,
                 destination: updated.destination ?? updated.dropoff_location,
+                driver_allowance: updated.driver_allowance,
                 status: Status.ACTIVE,
                 created_by: userId,
               },
             });
             tripSheets.push(tripSheet);
           }
-        } else if (shouldUpdateDestinationAliases) {
+        } else if (shouldUpdateDestinationAliases || shouldUpdateDriverAllowance) {
           const activeOrderVehicles = await tx.orderVehicle.findMany({
             where: { order_id: BigInt(id), deleted_at: null },
             select: { id: true },
@@ -602,7 +610,12 @@ export class OrderService {
                 deleted_at: null,
               },
               data: {
-                destination: updated.destination ?? updated.dropoff_location,
+                ...(shouldUpdateDestinationAliases && {
+                  destination: updated.destination ?? updated.dropoff_location,
+                }),
+                ...(shouldUpdateDriverAllowance && {
+                  driver_allowance: updated.driver_allowance,
+                }),
               },
             });
           }
@@ -630,6 +643,7 @@ export class OrderService {
           destination: true,
           total_vehicles: true,
           total_amount: true,
+          driver_allowance: true,
           status: true,
           notes: true,
           created_at: true,
@@ -818,6 +832,7 @@ export class OrderService {
       ...order,
       id: order.id?.toString(),
       total_amount: decimalToMoneyString(order.total_amount),
+      driver_allowance: decimalToMoneyString(order.driver_allowance),
       start_date: order.start_date ?? order.usage_date ?? null,
       finish_date: order.finish_date ?? order.usage_date ?? null,
       destination: order.destination ?? order.dropoff_location ?? null,
