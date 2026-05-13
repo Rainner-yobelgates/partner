@@ -23,6 +23,26 @@ const isPasswordVisible = ref(false)
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 
+const getLoginErrorMessage = (error: unknown) => {
+  if (error instanceof ApiError) {
+    if (error.status === 401)
+      return 'Username atau password salah.'
+
+    if (error.status === 0)
+      return 'Tidak bisa terhubung ke server. Pastikan backend berjalan.'
+
+    if (error.message.includes('VITE_API_BASE_URL'))
+      return 'Konfigurasi API tidak tepat. Frontend masih mengarah ke alamat yang salah.'
+
+    return error.message
+  }
+
+  if (error instanceof Error && error.message.trim())
+    return `Masuk gagal. ${error.message}`
+
+  return 'Masuk gagal. Coba lagi.'
+}
+
 const authThemeMask = computed(() => {
   return vuetifyTheme.global.name.value === 'light'
     ? authV1MaskLight
@@ -43,10 +63,7 @@ const handleLogin = async () => {
   }
   catch (error) {
     console.error('[pages/login.vue]', error)
-    if (error instanceof ApiError)
-      errorMessage.value = error.message
-    else
-      errorMessage.value = 'Masuk gagal. Coba lagi.'
+    errorMessage.value = getLoginErrorMessage(error)
   }
   finally {
     isSubmitting.value = false
@@ -164,5 +181,4 @@ const handleLogin = async () => {
   }
 }
 </style>
-
 
