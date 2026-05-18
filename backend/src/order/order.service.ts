@@ -68,6 +68,7 @@ export class OrderService {
               tripSheets: {
                 where: { deleted_at: null },
                 select: {
+                  crew_incentive: true,
                   fuel_cost: true,
                   toll_fee: true,
                   parking_fee: true,
@@ -106,6 +107,7 @@ export class OrderService {
           created_at: order.created_at,
           trip_sheet_count: tripSheetCount,
           income: decimalToMoneyString(income),
+          expense_crew: decimalToMoneyString(agg.crew),
           expense_fuel: decimalToMoneyString(agg.fuel),
           expense_toll: decimalToMoneyString(agg.toll),
           expense_parking: decimalToMoneyString(agg.parking),
@@ -173,6 +175,7 @@ export class OrderService {
 
   private aggregateTripSheetCosts(
     orderVehicles: Array<{ tripSheets: Array<{
+      crew_incentive: Prisma.Decimal | null;
       fuel_cost: Prisma.Decimal | null;
       toll_fee: Prisma.Decimal | null;
       parking_fee: Prisma.Decimal | null;
@@ -180,6 +183,7 @@ export class OrderService {
       others: Prisma.Decimal | null;
     }> }>,
   ) {
+    let crew = new Prisma.Decimal(0);
     let fuel = new Prisma.Decimal(0);
     let toll = new Prisma.Decimal(0);
     let parking = new Prisma.Decimal(0);
@@ -193,6 +197,7 @@ export class OrderService {
     for (const ov of orderVehicles) {
       for (const ts of ov.tripSheets ?? []) {
         tripSheetCount += 1;
+        crew = crew.add(d(ts.crew_incentive));
         fuel = fuel.add(d(ts.fuel_cost));
         toll = toll.add(d(ts.toll_fee));
         parking = parking.add(d(ts.parking_fee));
@@ -201,8 +206,8 @@ export class OrderService {
       }
     }
 
-    const total = fuel.add(toll).add(parking).add(stay).add(others);
-    return { fuel, toll, parking, stay, others, total, tripSheetCount };
+    const total = crew.add(fuel).add(toll).add(parking).add(stay).add(others);
+    return { crew, fuel, toll, parking, stay, others, total, tripSheetCount };
   }
 
   async findAll(query: QueryOrderDto) {

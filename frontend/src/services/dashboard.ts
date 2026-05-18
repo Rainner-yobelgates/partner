@@ -56,6 +56,7 @@ export type DashboardOrderFinancial = {
   }
   monthly: DashboardMonthlyFinancial[]
   expense_breakdown: {
+    crew_incentive: string | null
     fuel_cost: string | null
     toll_fee: string | null
     parking_fee: string | null

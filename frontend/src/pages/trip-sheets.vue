@@ -15,6 +15,7 @@ type TripSheetForm = {
   order_vehicle_id: string
   driver_id: string | null
   assistant_id: string | null
+  crew_incentive: string
   fuel_cost: string
   toll_fee: string
   parking_fee: string
@@ -25,7 +26,7 @@ type TripSheetForm = {
   status: MasterStatus
 }
 
-type MoneyField = 'fuel_cost' | 'toll_fee' | 'parking_fee' | 'stay_cost' | 'others' | 'driver_allowance'
+type MoneyField = 'crew_incentive' | 'fuel_cost' | 'toll_fee' | 'parking_fee' | 'stay_cost' | 'others' | 'driver_allowance'
 type ParsedMoneyPayload = Partial<Record<MoneyField, string>>
 
 const authStore = useAuthStore()
@@ -65,6 +66,7 @@ const form = ref<TripSheetForm>({
   order_vehicle_id: '',
   driver_id: null,
   assistant_id: null,
+  crew_incentive: '',
   fuel_cost: '',
   toll_fee: '',
   parking_fee: '',
@@ -172,6 +174,7 @@ const moneyFieldRule = (value: string) => {
 
 const parseMoneyPayload = (): ParsedMoneyPayload | null => {
   const parsedFuel = parseOptionalApiDecimalMoney(form.value.fuel_cost)
+  const parsedCrew = parseOptionalApiDecimalMoney(form.value.crew_incentive)
   const parsedToll = parseOptionalApiDecimalMoney(form.value.toll_fee)
   const parsedParking = parseOptionalApiDecimalMoney(form.value.parking_fee)
   const parsedStay = parseOptionalApiDecimalMoney(form.value.stay_cost)
@@ -179,7 +182,8 @@ const parseMoneyPayload = (): ParsedMoneyPayload | null => {
   const parsedDriverAllowance = parseOptionalApiDecimalMoney(form.value.driver_allowance)
 
   if (
-    parsedFuel === '__invalid__'
+    parsedCrew === '__invalid__'
+    || parsedFuel === '__invalid__'
     || parsedToll === '__invalid__'
     || parsedParking === '__invalid__'
     || parsedStay === '__invalid__'
@@ -191,6 +195,7 @@ const parseMoneyPayload = (): ParsedMoneyPayload | null => {
   }
 
   return {
+    ...(parsedCrew !== undefined && { crew_incentive: parsedCrew }),
     ...(parsedFuel !== undefined && { fuel_cost: parsedFuel }),
     ...(parsedToll !== undefined && { toll_fee: parsedToll }),
     ...(parsedParking !== undefined && { parking_fee: parsedParking }),
@@ -213,6 +218,9 @@ const buildFormData = (moneyPayload: ParsedMoneyPayload) => {
 
   const assistantId = getTrimmedValue(form.value.assistant_id)
   data.append('assistant_id', assistantId)
+
+  if (moneyPayload.crew_incentive !== undefined)
+    data.append('crew_incentive', moneyPayload.crew_incentive)
 
   if (moneyPayload.fuel_cost !== undefined)
     data.append('fuel_cost', moneyPayload.fuel_cost)
@@ -333,6 +341,7 @@ const openEditDialog = (item: TripSheetItem) => {
     order_vehicle_id: item.order_vehicle_id || '',
     driver_id: item.driver_id || null,
     assistant_id: item.assistant_id || null,
+    crew_incentive: fromMoneyResponse(item.crew_incentive),
     fuel_cost: fromMoneyResponse(item.fuel_cost),
     toll_fee: fromMoneyResponse(item.toll_fee),
     parking_fee: fromMoneyResponse(item.parking_fee),
@@ -529,6 +538,19 @@ onMounted(async () => {
             <VCol cols="12" md="6"><VSelect v-model="form.status" label="Status" :items="['ACTIVE','INACTIVE']" /></VCol>
             <VCol cols="12" md="3">
               <VTextField
+                v-model="form.crew_incentive"
+                label="Insentif Kru"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                :rules="[moneyFieldRule]"
+                @update:model-value="onMoneyFieldInput('crew_incentive', String($event ?? ''))"
+                @keydown="blockKeysNonDecimalMoney"
+                @paste="onMoneyFieldPaste('crew_incentive', $event)"
+              />
+            </VCol>
+            <VCol cols="12" md="3">
+              <VTextField
                 v-model="form.fuel_cost"
                 label="Biaya BBM"
                 type="text"
@@ -694,6 +716,14 @@ onMounted(async () => {
               <VCardText>
                 <div class="text-caption text-medium-emphasis mb-1">Tujuan</div>
                 <div class="text-body-1 text-break">{{ detailItem?.destination || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Insentif Kru</div>
+                <div class="text-body-1 text-break">{{ formatMoneyId(detailItem?.crew_incentive) }}</div>
               </VCardText>
             </VCard>
           </VCol>

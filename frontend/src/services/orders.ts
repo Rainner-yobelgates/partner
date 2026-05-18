@@ -138,6 +138,7 @@ export type OrderRecapRow = {
   created_at: string
   trip_sheet_count: number
   income: string | null
+  expense_crew: string | null
   expense_fuel: string | null
   expense_toll: string | null
   expense_parking: string | null

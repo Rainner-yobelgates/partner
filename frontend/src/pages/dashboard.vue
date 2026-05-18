@@ -173,6 +173,7 @@ const orderExpenseRows = computed(() => {
   if (!breakdown)
     return []
   return [
+    { label: 'Insentif Kru', value: breakdown.crew_incentive },
     { label: 'BBM', value: breakdown.fuel_cost },
     { label: 'Tol', value: breakdown.toll_fee },
     { label: 'Parkir', value: breakdown.parking_fee },

@@ -170,6 +170,7 @@ export class TripSheetController {
         order_vehicle_id: { type: 'string', example: '1' },
         driver_id: { type: 'string', example: '10' },
         assistant_id: { type: 'string', example: '11' },
+        crew_incentive: { type: 'string', example: '200000.00', description: 'DECIMAL 15,2' },
         fuel_cost: { type: 'string', example: '150000.00', description: 'DECIMAL 15,2' },
         toll_fee: { type: 'string', example: '45000.00', description: 'DECIMAL 15,2' },
         parking_fee: { type: 'string', example: '20000.00', description: 'DECIMAL 15,2' },

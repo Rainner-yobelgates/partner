@@ -274,6 +274,7 @@ export class DashboardService {
     const monthlyRevenue = this.createMonthlyDecimals();
     const monthlyExpense = this.createMonthlyDecimals();
 
+    let expenseCrew = new Prisma.Decimal(0);
     let expenseFuel = new Prisma.Decimal(0);
     let expenseToll = new Prisma.Decimal(0);
     let expenseParking = new Prisma.Decimal(0);
@@ -315,6 +316,7 @@ export class DashboardService {
         },
       },
       select: {
+        crew_incentive: true,
         fuel_cost: true,
         toll_fee: true,
         parking_fee: true,
@@ -338,15 +340,17 @@ export class DashboardService {
         continue;
 
       const monthIndex = orderCreatedAt.getUTCMonth();
+      const crew = this.asDecimal(tripSheet.crew_incentive);
       const fuel = this.asDecimal(tripSheet.fuel_cost);
       const toll = this.asDecimal(tripSheet.toll_fee);
       const parking = this.asDecimal(tripSheet.parking_fee);
       const stay = this.asDecimal(tripSheet.stay_cost);
       const others = this.asDecimal(tripSheet.others);
-      const total = fuel.add(toll).add(parking).add(stay).add(others);
+      const total = crew.add(fuel).add(toll).add(parking).add(stay).add(others);
 
       monthlyExpense[monthIndex] = monthlyExpense[monthIndex].add(total);
 
+      expenseCrew = expenseCrew.add(crew);
       expenseFuel = expenseFuel.add(fuel);
       expenseToll = expenseToll.add(toll);
       expenseParking = expenseParking.add(parking);
@@ -357,7 +361,8 @@ export class DashboardService {
     const monthly = this.buildMonthlyBuckets(monthlyRevenue, monthlyExpense);
     const totals = this.calculateTotals(monthlyRevenue, monthlyExpense);
 
-    const expenseBreakdownTotal = expenseFuel
+    const expenseBreakdownTotal = expenseCrew
+      .add(expenseFuel)
       .add(expenseToll)
       .add(expenseParking)
       .add(expenseStay)
@@ -370,6 +375,7 @@ export class DashboardService {
       },
       monthly,
       expense_breakdown: {
+        crew_incentive: decimalToMoneyString(expenseCrew),
         fuel_cost: decimalToMoneyString(expenseFuel),
         toll_fee: decimalToMoneyString(expenseToll),
         parking_fee: decimalToMoneyString(expenseParking),
@@ -494,6 +500,7 @@ export class DashboardService {
         },
       },
       select: {
+        crew_incentive: true,
         fuel_cost: true,
         toll_fee: true,
         parking_fee: true,
@@ -518,7 +525,8 @@ export class DashboardService {
 
       const monthIndex = orderCreatedAt.getUTCMonth();
       const total = this
-        .asDecimal(tripSheet.fuel_cost)
+        .asDecimal(tripSheet.crew_incentive)
+        .add(this.asDecimal(tripSheet.fuel_cost))
         .add(this.asDecimal(tripSheet.toll_fee))
         .add(this.asDecimal(tripSheet.parking_fee))
         .add(this.asDecimal(tripSheet.stay_cost))

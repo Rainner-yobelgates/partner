@@ -8,6 +8,7 @@ export type TripSheetItem = {
   driver_id?: string | null
   assistant_id?: string | null
   destination?: string | null
+  crew_incentive?: string | null
   fuel_cost?: string | null
   toll_fee?: string | null
   parking_fee?: string | null
@@ -45,6 +46,7 @@ export type TripSheetPayload = {
   order_vehicle_id: string
   driver_id?: string
   assistant_id?: string
+  crew_incentive?: string
   fuel_cost?: string
   toll_fee?: string
   parking_fee?: string
@@ -59,6 +61,7 @@ export type TripSheetPayload = {
 export type TripSheetPublicPayload = {
   driver_id?: string
   assistant_id?: string
+  crew_incentive?: string
   fuel_cost?: string
   toll_fee?: string
   parking_fee?: string

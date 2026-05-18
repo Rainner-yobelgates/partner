@@ -213,6 +213,7 @@ onMounted(() => {
               <th>Status</th>
               <th class="text-end">Jml TS</th>
               <th class="text-end">Pemasukan</th>
+              <th class="text-end">Insentif Kru</th>
               <th class="text-end">BBM</th>
               <th class="text-end">Tol</th>
               <th class="text-end">Parkir</th>
@@ -225,7 +226,7 @@ onMounted(() => {
           </thead>
           <tbody>
             <tr v-if="!isLoading && rows.length === 0">
-              <td colspan="16" class="text-center text-medium-emphasis py-8">
+              <td colspan="17" class="text-center text-medium-emphasis py-8">
                 Tidak ada reservasi pada periode ini.
               </td>
             </tr>
@@ -246,6 +247,7 @@ onMounted(() => {
               </td>
               <td class="text-end">{{ row.trip_sheet_count }}</td>
               <td class="text-end">{{ formatMoneyTable(row.income) }}</td>
+              <td class="text-end">{{ formatMoneyTable(row.expense_crew) }}</td>
               <td class="text-end">{{ formatMoneyTable(row.expense_fuel) }}</td>
               <td class="text-end">{{ formatMoneyTable(row.expense_toll) }}</td>
               <td class="text-end">{{ formatMoneyTable(row.expense_parking) }}</td>

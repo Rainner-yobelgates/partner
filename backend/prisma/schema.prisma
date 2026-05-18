@@ -502,6 +502,7 @@ model TripSheet {
   driver_id        BigInt?
   assistant_id     BigInt?
   destination      String?
+  crew_incentive   Decimal? @db.Decimal(15, 2)
   fuel_cost        Decimal? @db.Decimal(15, 2)
   toll_fee         Decimal? @db.Decimal(15, 2)
   parking_fee      Decimal? @db.Decimal(15, 2)

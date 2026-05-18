@@ -27,6 +27,9 @@ export class CreateTripSheetDto {
   @IsMoneyAmountOptional('Biaya BBM', '150000.00')
   fuel_cost?: string;
 
+  @IsMoneyAmountOptional('Insentif kru', '200000.00')
+  crew_incentive?: string;
+
   @IsMoneyAmountOptional('Biaya tol', '45000.00')
   toll_fee?: string;
 
@@ -73,6 +76,9 @@ export class UpdateTripSheetPublicDto {
 
   @IsMoneyAmountOptional('Biaya BBM', '150000.00')
   fuel_cost?: string;
+
+  @IsMoneyAmountOptional('Insentif kru', '200000.00')
+  crew_incentive?: string;
 
   @IsMoneyAmountOptional('Biaya tol', '45000.00')
   toll_fee?: string;
