@@ -33,7 +33,7 @@ const navGroups: NavGroupDef[] = [
     title: 'AJK',
     icon: 'ri-briefcase-line',
     children: [
-      { permission: 'client:read', item: { title: 'Client', icon: 'ri-community-line', to: '/clients' } },
+      { permission: 'client:read', item: { title: 'Klien', icon: 'ri-community-line', to: '/clients' } },
       { permission: 'contract:read', item: { title: 'Kontrak', icon: 'ri-file-list-3-line', to: '/contracts' } },
       { permission: 'shuttle:read', item: { title: 'Antar Jemput', icon: 'ri-bus-2-line', to: '/shuttles' } },
     ],

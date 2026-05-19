@@ -415,13 +415,13 @@ onMounted(async () => {
             </VCol>
             <VCol cols="12" md="4">
               <VSheet border rounded class="pa-4">
-                <div class="text-caption text-medium-emphasis">Jumlah Client</div>
+                <div class="text-caption text-medium-emphasis">Jumlah Klien</div>
                 <div class="text-h5">{{ reportSummary?.client_count ?? 0 }}</div>
               </VSheet>
             </VCol>
             <VCol cols="12" md="4">
               <VSheet border rounded class="pa-4">
-                <div class="text-caption text-medium-emphasis">Jumlah Contract</div>
+                <div class="text-caption text-medium-emphasis">Jumlah Kontrak</div>
                 <div class="text-h5">{{ reportSummary?.contract_count ?? 0 }}</div>
               </VSheet>
             </VCol>
