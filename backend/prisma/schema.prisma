@@ -44,6 +44,13 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum ExportJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 // ================= USER =================
 model User {
   id         BigInt @id @default(autoincrement())
@@ -529,4 +536,24 @@ model TripSheet {
   createdBy User? @relation("trip_sheet_created_by", fields: [created_by], references: [id])
   updatedBy User? @relation("trip_sheet_updated_by", fields: [updated_by], references: [id])
   deletedBy User? @relation("trip_sheet_deleted_by", fields: [deleted_by], references: [id])
+}
+
+// ================= EXPORT JOB =================
+model ExportJob {
+  id               BigInt          @id @default(autoincrement())
+  export_jobs_uuid String          @unique @default(uuid())
+  module_name      String
+  status           ExportJobStatus @default(PENDING)
+  filters          Json
+  file_name        String?
+  file_path        String?
+  error_message    String?
+  created_by       BigInt?
+  completed_at     DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([module_name, status, created_at])
+  @@index([created_by, module_name, created_at])
 }

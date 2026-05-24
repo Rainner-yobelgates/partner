@@ -15,11 +15,91 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto, QueryOrderDto, UpdateOrderDto } from './dto/order.dto';
 import { QueryOrderRecapDto } from './dto/order-recap.dto';
 
+const ORDER_RECAP_ORDER_BY = [{ created_at: 'asc' as const }, { id: 'asc' as const }];
+
+const ORDER_RECAP_SELECT = {
+  id: true,
+  orders_uuid: true,
+  order_number: true,
+  customer_name: true,
+  customer_phone: true,
+  destination: true,
+  dropoff_location: true,
+  total_amount: true,
+  driver_allowance: true,
+  status: true,
+  created_at: true,
+  orderVehicles: {
+    where: { deleted_at: null },
+    select: {
+      tripSheets: {
+        where: { deleted_at: null },
+        select: {
+          crew_incentive: true,
+          fuel_cost: true,
+          toll_fee: true,
+          parking_fee: true,
+          stay_cost: true,
+          others: true,
+        },
+      },
+    },
+  },
+} as const;
+
 @Injectable()
 export class OrderService {
   constructor(private readonly prisma: PrismaService) {}
 
   async recap(query: QueryOrderRecapDto) {
+    try {
+      const context = this.buildRecapQueryContext(query);
+      const orders = await this.prisma.db.order.findMany({
+        where: context.where,
+        orderBy: ORDER_RECAP_ORDER_BY,
+        select: ORDER_RECAP_SELECT,
+      });
+
+      let sumIncome = new Prisma.Decimal(0);
+      let sumExpense = new Prisma.Decimal(0);
+      let sumProfit = new Prisma.Decimal(0);
+
+      const data = orders.map((order) => {
+        const row = this.buildRecapRow(order);
+        const income = this.decimalFromMoneyString(row.income);
+        const expense = this.decimalFromMoneyString(row.total_expense);
+        const profit = this.decimalFromMoneyString(row.profit);
+
+        sumIncome = sumIncome.add(income);
+        sumExpense = sumExpense.add(expense);
+        sumProfit = sumProfit.add(profit);
+
+        return row;
+      });
+
+      return {
+        success: true,
+        message: 'Rekapitulasi reservasi berhasil diambil',
+        data,
+        summary: {
+          order_count: data.length,
+          total_income: decimalToMoneyString(sumIncome),
+          total_expense: decimalToMoneyString(sumExpense),
+          total_profit: decimalToMoneyString(sumProfit),
+        },
+        filter: {
+          month: context.filter.month,
+          year: context.filter.year,
+          created_from: context.filter.created_from,
+          created_to_before: context.filter.created_to_before,
+        },
+      };
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  buildRecapQueryContext(query: QueryOrderRecapDto) {
     const monthStart = new Date(Date.UTC(query.year, query.month - 1, 1, 0, 0, 0, 0));
     const monthEndExclusive = new Date(Date.UTC(query.year, query.month, 1, 0, 0, 0, 0));
     let start = monthStart;
@@ -44,100 +124,61 @@ export class OrderService {
       });
     }
 
-    try {
-      const orders = await this.prisma.db.order.findMany({
-        where: {
-          deleted_at: null,
-          created_at: { gte: start, lt: endExclusive },
-        },
-        orderBy: { created_at: 'asc' },
-        select: {
-          id: true,
-          orders_uuid: true,
-          order_number: true,
-          customer_name: true,
-          customer_phone: true,
-          destination: true,
-          dropoff_location: true,
-          total_amount: true,
-          status: true,
-          created_at: true,
-          orderVehicles: {
-            where: { deleted_at: null },
-            select: {
-              tripSheets: {
-                where: { deleted_at: null },
-                select: {
-                  crew_incentive: true,
-                  fuel_cost: true,
-                  toll_fee: true,
-                  parking_fee: true,
-                  stay_cost: true,
-                  others: true,
-                },
-              },
-            },
-          },
-        },
-      });
+    return {
+      where: {
+        deleted_at: null,
+        created_at: { gte: start, lt: endExclusive },
+      } satisfies Prisma.OrderWhereInput,
+      filter: {
+        month: query.month,
+        year: query.year,
+        created_from: start.toISOString(),
+        created_to_before: endExclusive.toISOString(),
+      },
+    };
+  }
 
-      let sumIncome = new Prisma.Decimal(0);
-      let sumExpense = new Prisma.Decimal(0);
-      let sumProfit = new Prisma.Decimal(0);
+  async findRecapOrdersBatch(
+    context: ReturnType<OrderService['buildRecapQueryContext']>,
+    take: number,
+    cursorId?: bigint,
+  ) {
+    return this.prisma.db.order.findMany({
+      where: context.where,
+      orderBy: ORDER_RECAP_ORDER_BY,
+      take,
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+      select: ORDER_RECAP_SELECT,
+    });
+  }
 
-      const data = orders.map((order) => {
-        const agg = this.aggregateTripSheetCosts(order.orderVehicles);
-        const income = order.total_amount != null ? new Prisma.Decimal(order.total_amount as any) : new Prisma.Decimal(0);
-        const expense = agg.total;
-        const profit = income.sub(expense);
-        const tripSheetCount = agg.tripSheetCount;
+  buildRecapRow(order: any) {
+    const agg = this.aggregateTripSheetCosts(order.orderVehicles);
+    const income = order.total_amount != null ? new Prisma.Decimal(order.total_amount as any) : new Prisma.Decimal(0);
+    const expense = agg.total;
+    const profit = income.sub(expense);
 
-        sumIncome = sumIncome.add(income);
-        sumExpense = sumExpense.add(expense);
-        sumProfit = sumProfit.add(profit);
-
-        return {
-          id: order.id.toString(),
-          orders_uuid: order.orders_uuid,
-          order_number: order.order_number,
-          customer_name: order.customer_name,
-          customer_phone: order.customer_phone,
-          destination: order.destination ?? order.dropoff_location ?? null,
-          status: order.status,
-          created_at: order.created_at,
-          trip_sheet_count: tripSheetCount,
-          income: decimalToMoneyString(income),
-          expense_crew: decimalToMoneyString(agg.crew),
-          expense_fuel: decimalToMoneyString(agg.fuel),
-          expense_toll: decimalToMoneyString(agg.toll),
-          expense_parking: decimalToMoneyString(agg.parking),
-          expense_stay: decimalToMoneyString(agg.stay),
-          expense_others: decimalToMoneyString(agg.others),
-          total_expense: decimalToMoneyString(expense),
-          profit: decimalToMoneyString(profit),
-        };
-      });
-
-      return {
-        success: true,
-        message: 'Rekapitulasi reservasi berhasil diambil',
-        data,
-        summary: {
-          order_count: data.length,
-          total_income: decimalToMoneyString(sumIncome),
-          total_expense: decimalToMoneyString(sumExpense),
-          total_profit: decimalToMoneyString(sumProfit),
-        },
-        filter: {
-          month: query.month,
-          year: query.year,
-          created_from: start.toISOString(),
-          created_to_before: endExclusive.toISOString(),
-        },
-      };
-    } catch (error: unknown) {
-      return this.handleError(error);
-    }
+    return {
+      id: order.id.toString(),
+      orders_uuid: order.orders_uuid,
+      order_number: order.order_number,
+      customer_name: order.customer_name,
+      customer_phone: order.customer_phone,
+      destination: order.destination ?? order.dropoff_location ?? null,
+      status: order.status,
+      created_at: order.created_at,
+      trip_sheet_count: agg.tripSheetCount,
+      income: decimalToMoneyString(income),
+      driver_allowance: decimalToMoneyString(order.driver_allowance),
+      expense_crew: decimalToMoneyString(agg.crew),
+      expense_fuel: decimalToMoneyString(agg.fuel),
+      expense_toll: decimalToMoneyString(agg.toll),
+      expense_parking: decimalToMoneyString(agg.parking),
+      expense_stay: decimalToMoneyString(agg.stay),
+      expense_others: decimalToMoneyString(agg.others),
+      total_expense: decimalToMoneyString(expense),
+      profit: decimalToMoneyString(profit),
+    };
   }
 
   private parseDateFromInput(raw: string): Date {
@@ -171,6 +212,10 @@ export class OrderService {
     }
 
     return date;
+  }
+
+  private decimalFromMoneyString(value: string | null | undefined) {
+    return value != null ? new Prisma.Decimal(value as any) : new Prisma.Decimal(0);
   }
 
   private aggregateTripSheetCosts(

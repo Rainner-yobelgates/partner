@@ -1,4 +1,4 @@
-import { request } from './http'
+import { httpClient, request } from './http'
 import type { MasterStatus } from './masters'
 
 export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
@@ -138,6 +138,7 @@ export type OrderRecapRow = {
   created_at: string
   trip_sheet_count: number
   income: string | null
+  driver_allowance: string | null
   expense_crew: string | null
   expense_fuel: string | null
   expense_toll: string | null
@@ -166,6 +167,42 @@ export type OrderRecapResponse = {
     created_from: string
     created_to_before: string
   }
+}
+
+export type OrderRecapExportPayload = {
+  month: number
+  year: number
+  date_from?: string
+  date_to?: string
+}
+
+export type OrderRecapExportStatus = 'pending' | 'processing' | 'completed' | 'failed'
+
+export type OrderRecapExportJob = {
+  id: string
+  jobId: string
+  status: OrderRecapExportStatus
+  fileName?: string | null
+  downloadUrl?: string | null
+  errorMessage?: string | null
+  createdAt?: string
+  updatedAt?: string
+  completedAt?: string | null
+}
+
+export type OrderRecapExportRequestResponse = {
+  success: boolean
+  jobId: string
+  message: string
+  data: {
+    jobId: string
+    status: OrderRecapExportStatus
+  }
+}
+
+export type OrderRecapExportStatusResponse = {
+  success: boolean
+  data: OrderRecapExportJob
 }
 
 const buildQueryString = (query: OrderListQuery) => {
@@ -228,5 +265,19 @@ export const orderService = {
     if (dateTo)
       params.set('date_to', dateTo)
     return request<OrderRecapResponse>(`/orders/recap?${params.toString()}`)
+  },
+  requestRecapExport(payload: OrderRecapExportPayload) {
+    return request<OrderRecapExportRequestResponse>('/order-recap/export', {
+      method: 'POST',
+      body: payload,
+    })
+  },
+  recapExportStatus(jobId: string | number) {
+    return request<OrderRecapExportStatusResponse>(`/order-recap/export/${jobId}/status`)
+  },
+  downloadRecapExport(jobId: string | number) {
+    return httpClient.get<Blob>(`/order-recap/export/${jobId}/download`, {
+      responseType: 'blob',
+    })
   },
 }

@@ -1,8 +1,8 @@
 import { createMasterCrudService, type MasterListQuery, type MasterListResponse } from './master-crud.service'
-import { request } from './http'
+import { httpClient, request } from './http'
 
 export type MasterStatus = 'ACTIVE' | 'INACTIVE'
-export type VehicleType = 'EVALIA' | 'MEDIUM_BUS' | 'HIACE'
+export type VehicleType = 'EVALIA' | 'MEDIUM_BUS' | 'HIACE' | 'AVANZA' | 'VELOZ_HYBRID' | 'INNOVA_ZENIX'
 export type DriverType = 'ASSISTANT' | 'RESERVE' | 'MAIN'
 export type ServiceType = 'MAINTENANCE' | 'REPAIR' | 'OIL_CHANGE' | 'INSPECTION'
 
@@ -350,6 +350,43 @@ export type ContractRecapResponse = {
   data: ContractRecapRow
 }
 
+export type ContractRecapExportPayload = {
+  client_id: string
+  month: string
+  year: string
+  date_from?: string
+  date_to?: string
+}
+
+export type ContractRecapExportStatus = 'pending' | 'processing' | 'completed' | 'failed'
+
+export type ContractRecapExportJob = {
+  id: string
+  jobId: string
+  status: ContractRecapExportStatus
+  fileName?: string | null
+  downloadUrl?: string | null
+  errorMessage?: string | null
+  createdAt?: string
+  updatedAt?: string
+  completedAt?: string | null
+}
+
+export type ContractRecapExportRequestResponse = {
+  success: boolean
+  jobId: string
+  message: string
+  data: {
+    jobId: string
+    status: ContractRecapExportStatus
+  }
+}
+
+export type ContractRecapExportStatusResponse = {
+  success: boolean
+  data: ContractRecapExportJob
+}
+
 export const contractRecapService = {
   defaultSelection() {
     return request<ContractRecapDefaultResponse>('/contracts/recap/default')
@@ -368,6 +405,20 @@ export const contractRecapService = {
     if (dateTo)
       params.set('date_to', dateTo)
     return request<ContractRecapResponse>(`/contracts/recap?${params.toString()}`)
+  },
+  requestExport(payload: ContractRecapExportPayload) {
+    return request<ContractRecapExportRequestResponse>('/contract-recap/export', {
+      method: 'POST',
+      body: payload,
+    })
+  },
+  exportStatus(jobId: string | number) {
+    return request<ContractRecapExportStatusResponse>(`/contract-recap/export/${jobId}/status`)
+  },
+  downloadExport(jobId: string | number) {
+    return httpClient.get<Blob>(`/contract-recap/export/${jobId}/download`, {
+      responseType: 'blob',
+    })
   },
 }
 

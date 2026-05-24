@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ApiError } from '@/services/http'
-import { orderService, type OrderRecapRow, type OrderRecapSummary } from '@/services/orders'
+import { orderService, type OrderRecapExportJob, type OrderRecapRow, type OrderRecapSummary } from '@/services/orders'
 import { useAuthStore } from '@/stores/auth'
 import { formatRupiah, formatRupiahPlain } from '@/utils/currency'
 
 const authStore = useAuthStore()
 const canRead = computed(() => authStore.hasPermission('order-recap:read'))
+const canExport = computed(() => authStore.hasPermission('order-recap:read'))
 
 const now = new Date()
 const month = ref(now.getMonth() + 1)
@@ -19,6 +20,10 @@ const summary = ref<OrderRecapSummary | null>(null)
 const filterMeta = ref<{ created_from: string; created_to_before: string } | null>(null)
 const isDetailDialogOpen = ref(false)
 const detailRow = ref<OrderRecapRow | null>(null)
+const isExportSubmitting = ref(false)
+const isExportDownloading = ref(false)
+const activeExport = ref<OrderRecapExportJob | null>(null)
+let exportPollTimer: number | undefined
 
 const snackbar = ref<{ show: boolean; color: 'success' | 'error'; text: string }>({ show: false, color: 'success', text: '' })
 
@@ -58,6 +63,34 @@ const getErrorMessage = (error: unknown) => {
   return error.message
 }
 
+const isExportRunning = computed(() =>
+  activeExport.value?.status === 'pending' || activeExport.value?.status === 'processing',
+)
+
+const exportAlertType = computed(() => {
+  if (activeExport.value?.status === 'completed')
+    return 'success'
+
+  if (activeExport.value?.status === 'failed')
+    return 'error'
+
+  return 'info'
+})
+
+const exportStatusText = computed(() => {
+  const current = activeExport.value
+  if (!current)
+    return ''
+
+  if (current.status === 'completed')
+    return 'Export selesai. File Excel siap diunduh.'
+
+  if (current.status === 'failed')
+    return current.errorMessage || 'Export gagal diproses.'
+
+  return 'Export sedang diproses. File akan tersedia setelah selesai.'
+})
+
 const formatMoneyId = (value?: string | null) => {
   return formatRupiah(value)
 }
@@ -85,6 +118,113 @@ const profitClass = (value?: string | null) => {
 const openDetailDialog = (row: OrderRecapRow) => {
   detailRow.value = row
   isDetailDialogOpen.value = true
+}
+
+const buildRecapExportPayload = () => ({
+  month: month.value,
+  year: year.value,
+  ...(startDate.value ? { date_from: startDate.value } : {}),
+  ...(endDate.value ? { date_to: endDate.value } : {}),
+})
+
+const stopExportPolling = () => {
+  if (exportPollTimer !== undefined) {
+    window.clearInterval(exportPollTimer)
+    exportPollTimer = undefined
+  }
+}
+
+const pollExportStatus = async (jobId: string) => {
+  try {
+    const response = await orderService.recapExportStatus(jobId)
+    activeExport.value = response.data
+
+    if (response.data.status === 'completed') {
+      stopExportPolling()
+      showToast('Export selesai. File Excel siap diunduh.')
+    }
+    else if (response.data.status === 'failed') {
+      stopExportPolling()
+      showToast(response.data.errorMessage || 'Export gagal diproses.', 'error')
+    }
+  }
+  catch (error) {
+    console.error('[pages/order-recap.vue]', error)
+    stopExportPolling()
+    showToast(getErrorMessage(error), 'error')
+  }
+}
+
+const startExportPolling = (jobId: string) => {
+  stopExportPolling()
+  void pollExportStatus(jobId)
+  exportPollTimer = window.setInterval(() => {
+    void pollExportStatus(jobId)
+  }, 3000)
+}
+
+const submitExport = async () => {
+  if (!canExport.value || isExportSubmitting.value || isExportRunning.value)
+    return
+
+  isExportSubmitting.value = true
+
+  try {
+    const response = await orderService.requestRecapExport(buildRecapExportPayload())
+    activeExport.value = {
+      id: response.data.jobId,
+      jobId: response.data.jobId,
+      status: response.data.status,
+    }
+    showToast('Export sedang diproses. File akan tersedia setelah selesai.')
+    startExportPolling(response.data.jobId)
+  }
+  catch (error) {
+    console.error('[pages/order-recap.vue]', error)
+    showToast(getErrorMessage(error), 'error')
+  }
+  finally {
+    isExportSubmitting.value = false
+  }
+}
+
+const getDownloadFileName = (contentDisposition?: string | null) => {
+  if (!contentDisposition)
+    return activeExport.value?.fileName || 'order-recap-export.xlsx'
+
+  const encoded = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (encoded?.[1])
+    return decodeURIComponent(encoded[1])
+
+  const plain = contentDisposition.match(/filename="?([^"]+)"?/i)
+  return plain?.[1] || activeExport.value?.fileName || 'order-recap-export.xlsx'
+}
+
+const downloadExportFile = async () => {
+  if (!activeExport.value || activeExport.value.status !== 'completed')
+    return
+
+  isExportDownloading.value = true
+
+  try {
+    const response = await orderService.downloadRecapExport(activeExport.value.jobId)
+    const url = window.URL.createObjectURL(response.data)
+    const link = document.createElement('a')
+
+    link.href = url
+    link.download = getDownloadFileName(String(response.headers['content-disposition'] ?? ''))
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  }
+  catch (error) {
+    console.error('[pages/order-recap.vue]', error)
+    showToast(getErrorMessage(error), 'error')
+  }
+  finally {
+    isExportDownloading.value = false
+  }
 }
 
 const fetchRecap = async () => {
@@ -119,13 +259,27 @@ onMounted(() => {
   if (canRead.value)
     fetchRecap()
 })
+
+onBeforeUnmount(stopExportPolling)
 </script>
 
 <template>
   <VCard>
     <VCardItem>
       <template #title>
-        <span class="text-h6">Rekap Reservasi</span>
+        <div class="d-flex align-center justify-space-between flex-wrap gap-4">
+          <span class="text-h6">Rekap Reservasi</span>
+          <VBtn
+            v-if="canExport"
+            color="primary"
+            prepend-icon="ri-file-excel-2-line"
+            :loading="isExportSubmitting"
+            :disabled="isExportSubmitting || isExportRunning"
+            @click="submitExport"
+          >
+            Export Excel
+          </VBtn>
+        </div>
       </template>
       <template #subtitle>
         <span class="text-body-2 text-medium-emphasis">
@@ -176,6 +330,28 @@ onMounted(() => {
       <p v-if="filterMeta" class="text-caption text-medium-emphasis mt-2 mb-0">
         Rentang: {{ filterMeta.created_from }} - sebelum {{ filterMeta.created_to_before }}
       </p>
+      <VAlert
+        v-if="activeExport"
+        class="mt-4"
+        :type="exportAlertType"
+        variant="tonal"
+      >
+        <div class="d-flex align-center justify-space-between flex-wrap gap-3">
+          <div>
+            <div class="font-weight-medium">{{ exportStatusText }}</div>
+          </div>
+          <VBtn
+            v-if="activeExport.status === 'completed'"
+            color="primary"
+            variant="flat"
+            :loading="isExportDownloading"
+            :disabled="isExportDownloading"
+            @click="downloadExportFile"
+          >
+            Download Excel
+          </VBtn>
+        </div>
+      </VAlert>
     </VCardText>
 
     <VDivider />
@@ -211,8 +387,9 @@ onMounted(() => {
               <th>Tujuan</th>
               <th>Dibuat</th>
               <th>Status</th>
-              <th class="text-end">Jml TS</th>
+              <th class="text-end">Surat Jalan</th>
               <th class="text-end">Pemasukan</th>
+              <th class="text-end">Uang Jalan</th>
               <th class="text-end">Insentif Kru</th>
               <th class="text-end">BBM</th>
               <th class="text-end">Tol</th>
@@ -226,7 +403,7 @@ onMounted(() => {
           </thead>
           <tbody>
             <tr v-if="!isLoading && rows.length === 0">
-              <td colspan="17" class="text-center text-medium-emphasis py-8">
+              <td colspan="18" class="text-center text-medium-emphasis py-8">
                 Tidak ada reservasi pada periode ini.
               </td>
             </tr>
@@ -247,6 +424,7 @@ onMounted(() => {
               </td>
               <td class="text-end">{{ row.trip_sheet_count }}</td>
               <td class="text-end">{{ formatMoneyTable(row.income) }}</td>
+              <td class="text-end">{{ formatMoneyTable(row.driver_allowance) }}</td>
               <td class="text-end">{{ formatMoneyTable(row.expense_crew) }}</td>
               <td class="text-end">{{ formatMoneyTable(row.expense_fuel) }}</td>
               <td class="text-end">{{ formatMoneyTable(row.expense_toll) }}</td>
@@ -321,7 +499,7 @@ onMounted(() => {
           <VCol cols="12" md="4">
             <VCard variant="tonal" class="h-100">
               <VCardText>
-                <div class="text-caption text-medium-emphasis mb-1">Jumlah Trip Sheet</div>
+                <div class="text-caption text-medium-emphasis mb-1">Surat Jalan</div>
                 <div class="text-body-1 font-weight-medium text-break">{{ detailRow?.trip_sheet_count ?? 0 }}</div>
               </VCardText>
             </VCard>
@@ -331,6 +509,14 @@ onMounted(() => {
               <VCardText>
                 <div class="text-caption text-medium-emphasis mb-1">Pemasukan</div>
                 <div class="text-body-1 font-weight-medium text-break">{{ formatMoneyId(detailRow?.income) }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Uang Jalan</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ formatMoneyId(detailRow?.driver_allowance) }}</div>
               </VCardText>
             </VCard>
           </VCol>

@@ -3,6 +3,7 @@ import { ApiError } from '@/services/http'
 import {
   contractRecapService,
   type ContractRecapClientOption,
+  type ContractRecapExportJob,
   type ContractRecapRow,
 } from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
@@ -10,6 +11,7 @@ import { formatRupiah, formatRupiahPlain } from '@/utils/currency'
 
 const authStore = useAuthStore()
 const canRecapRead = computed(() => authStore.hasPermission('client-recap:read'))
+const canExport = computed(() => authStore.hasPermission('client-recap:read'))
 
 const now = new Date()
 const selectedClientId = ref<string | null>(null)
@@ -44,6 +46,10 @@ const yearItems = computed(() => {
 const isLoading = ref(false)
 const clients = ref<ContractRecapClientOption[]>([])
 const recapRow = ref<ContractRecapRow | null>(null)
+const isExportSubmitting = ref(false)
+const isExportDownloading = ref(false)
+const activeExport = ref<ContractRecapExportJob | null>(null)
+let exportPollTimer: number | undefined
 
 const snackbar = ref<{ show: boolean; color: 'success' | 'error'; text: string }>({ show: false, color: 'success', text: '' })
 
@@ -59,6 +65,34 @@ const getErrorMessage = (error: unknown) => {
     return `${error.message}: ${detail}`
   return error.message
 }
+
+const isExportRunning = computed(() =>
+  activeExport.value?.status === 'pending' || activeExport.value?.status === 'processing',
+)
+
+const exportAlertType = computed(() => {
+  if (activeExport.value?.status === 'completed')
+    return 'success'
+
+  if (activeExport.value?.status === 'failed')
+    return 'error'
+
+  return 'info'
+})
+
+const exportStatusText = computed(() => {
+  const current = activeExport.value
+  if (!current)
+    return ''
+
+  if (current.status === 'completed')
+    return 'Export selesai. File Excel siap diunduh.'
+
+  if (current.status === 'failed')
+    return current.errorMessage || 'Export gagal diproses.'
+
+  return 'Export sedang diproses. File akan tersedia setelah selesai.'
+})
 
 const formatMoneyId = (value?: string | null) => {
   return formatRupiah(value)
@@ -82,6 +116,119 @@ const profitClass = (value?: string | null) => {
   if (n > 0)
     return 'text-success font-weight-medium'
   return ''
+}
+
+const buildRecapExportPayload = () => ({
+  client_id: selectedClientId.value || '',
+  month: String(month.value),
+  year: String(year.value),
+  ...(startDate.value ? { date_from: startDate.value } : {}),
+  ...(endDate.value ? { date_to: endDate.value } : {}),
+})
+
+const stopExportPolling = () => {
+  if (exportPollTimer !== undefined) {
+    window.clearInterval(exportPollTimer)
+    exportPollTimer = undefined
+  }
+}
+
+const pollExportStatus = async (jobId: string) => {
+  try {
+    const response = await contractRecapService.exportStatus(jobId)
+    activeExport.value = response.data
+
+    if (response.data.status === 'completed') {
+      stopExportPolling()
+      showToast('Export selesai. File Excel siap diunduh.')
+    }
+    else if (response.data.status === 'failed') {
+      stopExportPolling()
+      showToast(response.data.errorMessage || 'Export gagal diproses.', 'error')
+    }
+  }
+  catch (error) {
+    console.error('[pages/contract-recap.vue] exportStatus', error)
+    stopExportPolling()
+    showToast(getErrorMessage(error), 'error')
+  }
+}
+
+const startExportPolling = (jobId: string) => {
+  stopExportPolling()
+  void pollExportStatus(jobId)
+  exportPollTimer = window.setInterval(() => {
+    void pollExportStatus(jobId)
+  }, 3000)
+}
+
+const submitExport = async () => {
+  if (!canExport.value || isExportSubmitting.value || isExportRunning.value)
+    return
+
+  if (!selectedClientId.value) {
+    showToast('Client wajib dipilih', 'error')
+    return
+  }
+
+  isExportSubmitting.value = true
+
+  try {
+    const response = await contractRecapService.requestExport(buildRecapExportPayload())
+    activeExport.value = {
+      id: response.data.jobId,
+      jobId: response.data.jobId,
+      status: response.data.status,
+    }
+    showToast('Export sedang diproses. File akan tersedia setelah selesai.')
+    startExportPolling(response.data.jobId)
+  }
+  catch (error) {
+    console.error('[pages/contract-recap.vue] export', error)
+    showToast(getErrorMessage(error), 'error')
+  }
+  finally {
+    isExportSubmitting.value = false
+  }
+}
+
+const getDownloadFileName = (contentDisposition?: string | null) => {
+  if (!contentDisposition)
+    return activeExport.value?.fileName || 'contract-recap-export.xlsx'
+
+  const encoded = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (encoded?.[1])
+    return decodeURIComponent(encoded[1])
+
+  const plain = contentDisposition.match(/filename="?([^"]+)"?/i)
+  return plain?.[1] || activeExport.value?.fileName || 'contract-recap-export.xlsx'
+}
+
+const downloadExportFile = async () => {
+  if (!activeExport.value || activeExport.value.status !== 'completed')
+    return
+
+  isExportDownloading.value = true
+
+  try {
+    const response = await contractRecapService.downloadExport(activeExport.value.jobId)
+    const url = window.URL.createObjectURL(response.data)
+    const link = document.createElement('a')
+
+    link.href = url
+    link.download = getDownloadFileName(String(response.headers['content-disposition'] ?? ''))
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  }
+  catch (error) {
+    console.error('[pages/contract-recap.vue] downloadExport', error)
+    showToast(getErrorMessage(error), 'error')
+  }
+  finally {
+    isExportDownloading.value = false
+  }
 }
 
 const loadClients = async () => {
@@ -150,13 +297,27 @@ onMounted(async () => {
     showToast(getErrorMessage(error), 'error')
   }
 })
+
+onBeforeUnmount(stopExportPolling)
 </script>
 
 <template>
   <VCard>
     <VCardItem>
       <template #title>
-        <span class="text-h6">Rekap Klien</span>
+        <div class="d-flex align-center justify-space-between flex-wrap gap-4">
+          <span class="text-h6">Rekap Klien</span>
+          <VBtn
+            v-if="canExport"
+            color="primary"
+            prepend-icon="ri-file-excel-2-line"
+            :loading="isExportSubmitting"
+            :disabled="isExportSubmitting || isExportRunning || !selectedClientId"
+            @click="submitExport"
+          >
+            Export Excel
+          </VBtn>
+        </div>
       </template>
     </VCardItem>
 
@@ -223,6 +384,28 @@ onMounted(async () => {
       <p v-if="recapRow?.filter?.created_from || recapRow?.filter?.created_to_before" class="text-caption text-medium-emphasis mt-2 mb-0">
         Filter created_at: {{ recapRow?.filter?.created_from || '-' }} - sebelum {{ recapRow?.filter?.created_to_before || '-' }}
       </p>
+      <VAlert
+        v-if="activeExport"
+        class="mt-4"
+        :type="exportAlertType"
+        variant="tonal"
+      >
+        <div class="d-flex align-center justify-space-between flex-wrap gap-3">
+          <div>
+            <div class="font-weight-medium">{{ exportStatusText }}</div>
+          </div>
+          <VBtn
+            v-if="activeExport.status === 'completed'"
+            color="primary"
+            variant="flat"
+            :loading="isExportDownloading"
+            :disabled="isExportDownloading"
+            @click="downloadExportFile"
+          >
+            Download Excel
+          </VBtn>
+        </div>
+      </VAlert>
     </VCardText>
 
     <VCardText v-else>

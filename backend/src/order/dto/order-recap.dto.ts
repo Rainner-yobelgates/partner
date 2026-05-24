@@ -33,3 +33,5 @@ export class QueryOrderRecapDto {
   @IsDateString()
   date_to?: string;
 }
+
+export class CreateOrderRecapExportDto extends QueryOrderRecapDto {}

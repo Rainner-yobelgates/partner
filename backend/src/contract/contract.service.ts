@@ -15,6 +15,33 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateContractDto, QueryContractDto, UpdateContractDto } from './dto/contract.dto';
 
 const CONTRACT_LIST_SORT_FIELDS = ['created_at', 'updated_at', 'contract_number', 'contract_month', 'contract_year', 'status'] as const;
+const CONTRACT_RECAP_SHUTTLE_ORDER_BY = [{ scheduled_date: 'asc' as const }, { id: 'asc' as const }];
+const CONTRACT_RECAP_SHUTTLE_SELECT = {
+  id: true,
+  shuttles_uuid: true,
+  scheduled_date: true,
+  status: true,
+  crew_incentive: true,
+  fuel: true,
+  toll_fee: true,
+  others: true,
+  vehicle: { select: { id: true, plate_number: true, vehicle_type: true } },
+  route: { select: { id: true, origin: true, destination: true } },
+} as const;
+const CONTRACT_RECAP_MONTH_NAMES = [
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
+];
 
 @Injectable()
 export class ContractService {
@@ -504,197 +531,222 @@ export class ContractService {
     dateToInput?: string,
   ) {
     try {
-      if (!Number.isInteger(monthInput) || monthInput < 1 || monthInput > 12) {
-        throw new BadRequestException({
-          success: false,
-          message: 'month harus angka 1-12',
-        });
-      }
-
-      if (!Number.isInteger(yearInput) || yearInput < 2000 || yearInput > 2100) {
-        throw new BadRequestException({
-          success: false,
-          message: 'year harus angka 2000-2100',
-        });
-      }
-
-      const clientId = BigInt(clientIdInput);
-      const client = await this.prisma.db.client.findFirst({
-        where: { id: clientId, deleted_at: null },
-        select: { id: true, name: true, code: true },
-      });
-
-      if (!client) {
-        throw new NotFoundException({
-          success: false,
-          message: `Client dengan ID ${clientIdInput} tidak ditemukan`,
-        });
-      }
-
-      const y = yearInput;
-      const m = monthInput;
-      const periodStart = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0, 0));
-      const periodEndExclusive = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0));
-      const createdFrom = dateFromInput ? this.parseDateFromInput(dateFromInput) : null;
-      const createdToExclusive = dateToInput ? this.parseDateToExclusiveInput(dateToInput) : null;
-      if (createdFrom && createdToExclusive && createdToExclusive <= createdFrom) {
-        throw new BadRequestException({
-          success: false,
-          message: 'Rentang created_at tidak valid: date_to harus lebih besar dari date_from',
-        });
-      }
-      const createdAtFilter = (createdFrom || createdToExclusive)
-        ? {
-            ...(createdFrom && { gte: createdFrom }),
-            ...(createdToExclusive && { lt: createdToExclusive }),
-          }
-        : undefined;
-
-      const contract = await this.prisma.db.contract.findFirst({
-        where: {
-          client_id: clientId,
-          contract_month: monthInput,
-          contract_year: yearInput,
-          deleted_at: null,
-          ...(createdAtFilter && { created_at: createdAtFilter }),
-        },
-        orderBy: [{ status: 'asc' }, { created_at: 'desc' }],
-        select: {
-          id: true,
-          client_id: true,
-          contract_number: true,
-          contract_month: true,
-          contract_year: true,
-          contract_value: true,
-        },
-      });
-
+      const context = await this.buildContractRecapQueryContext(
+        clientIdInput,
+        monthInput,
+        yearInput,
+        dateFromInput,
+        dateToInput,
+      );
       const shuttles = await this.prisma.db.shuttle.findMany({
-        where: {
-          client_id: clientId,
-          deleted_at: null,
-          scheduled_date: {
-            not: null,
-            gte: periodStart,
-            lt: periodEndExclusive,
-          },
-          ...(createdAtFilter && { created_at: createdAtFilter }),
-        },
-        orderBy: { scheduled_date: 'asc' },
-        select: {
-          id: true,
-          shuttles_uuid: true,
-          scheduled_date: true,
-          status: true,
-          crew_incentive: true,
-          fuel: true,
-          toll_fee: true,
-          others: true,
-          vehicle: { select: { id: true, plate_number: true, vehicle_type: true } },
-          route: { select: { id: true, origin: true, destination: true } },
-        },
-      });
-
-      let crewIncentive = new Prisma.Decimal(0);
-      let fuel = new Prisma.Decimal(0);
-      let toll = new Prisma.Decimal(0);
-      let others = new Prisma.Decimal(0);
-      for (const s of shuttles) {
-        if (s.crew_incentive != null)
-          crewIncentive = crewIncentive.add(s.crew_incentive);
-        if (s.fuel != null)
-          fuel = fuel.add(s.fuel);
-        if (s.toll_fee != null)
-          toll = toll.add(s.toll_fee);
-        if (s.others != null)
-          others = others.add(s.others);
-      }
-      const totalExpense = crewIncentive.add(fuel).add(toll).add(others);
-      const contractValue = contract?.contract_value ?? new Prisma.Decimal(0);
-      const profit = contractValue.sub(totalExpense);
-
-      const monthNames = [
-        'Januari',
-        'Februari',
-        'Maret',
-        'April',
-        'Mei',
-        'Juni',
-        'Juli',
-        'Agustus',
-        'September',
-        'Oktober',
-        'November',
-        'Desember',
-      ];
-      const periodLabel = `${monthNames[m - 1]} ${y}`;
-
-      const shuttleRows = shuttles.map((s) => {
-        const shuttleCrew = s.crew_incentive ?? new Prisma.Decimal(0);
-        const shuttleFuel = s.fuel ?? new Prisma.Decimal(0);
-        const shuttleToll = s.toll_fee ?? new Prisma.Decimal(0);
-        const shuttleOthers = s.others ?? new Prisma.Decimal(0);
-        const shuttleTotal = shuttleCrew.add(shuttleFuel).add(shuttleToll).add(shuttleOthers);
-
-        return {
-          id: s.id.toString(),
-          shuttles_uuid: s.shuttles_uuid,
-          scheduled_date: s.scheduled_date,
-          status: s.status,
-          vehicle_plate_number: s.vehicle?.plate_number ?? null,
-          vehicle_type: s.vehicle?.vehicle_type ?? null,
-          route_origin: s.route?.origin ?? null,
-          route_destination: s.route?.destination ?? null,
-          crew_incentive: decimalToMoneyString(shuttleCrew),
-          fuel: decimalToMoneyString(shuttleFuel),
-          toll_fee: decimalToMoneyString(shuttleToll),
-          others: decimalToMoneyString(shuttleOthers),
-          total_cost: decimalToMoneyString(shuttleTotal),
-        };
+        where: context.shuttleWhere,
+        orderBy: CONTRACT_RECAP_SHUTTLE_ORDER_BY,
+        select: CONTRACT_RECAP_SHUTTLE_SELECT,
       });
 
       return {
         success: true,
         message: 'Rekap klien berhasil diambil',
-        data: {
-          client_id: client.id.toString(),
-          client_name: client.name,
-          client_code: client.code ?? null,
-          month: m,
-          year: y,
-          period_label: periodLabel,
-          contract: contract
-            ? {
-                id: contract.id.toString(),
-                contract_number: contract.contract_number ?? null,
-                contract_value: decimalToMoneyString(contractValue),
-              }
-            : null,
-          summary: {
-            contract_count: contract ? 1 : 0,
-            shuttle_trip_count: shuttles.length,
-            total_income: decimalToMoneyString(contractValue),
-            total_expense: decimalToMoneyString(totalExpense),
-            total_profit: decimalToMoneyString(profit),
-            expense_crew_incentive: decimalToMoneyString(crewIncentive),
-            expense_fuel: decimalToMoneyString(fuel),
-            expense_toll: decimalToMoneyString(toll),
-            expense_others: decimalToMoneyString(others),
-          },
-          shuttles: shuttleRows,
-          filter: {
-            scheduled_from: periodStart.toISOString(),
-            scheduled_to_before: periodEndExclusive.toISOString(),
-            created_from: createdFrom?.toISOString() ?? null,
-            created_to_before: createdToExclusive?.toISOString() ?? null,
-          },
-        },
+        data: this.buildContractRecapResponse(context, shuttles),
       };
     } catch (error: unknown) {
       if (error instanceof BadRequestException || error instanceof NotFoundException)
         throw error;
       return this.handleError(error);
     }
+  }
+
+  async buildContractRecapQueryContext(
+    clientIdInput: string,
+    monthInput: number,
+    yearInput: number,
+    dateFromInput?: string,
+    dateToInput?: string,
+  ) {
+    if (!Number.isInteger(monthInput) || monthInput < 1 || monthInput > 12) {
+      throw new BadRequestException({
+        success: false,
+        message: 'month harus angka 1-12',
+      });
+    }
+
+    if (!Number.isInteger(yearInput) || yearInput < 2000 || yearInput > 2100) {
+      throw new BadRequestException({
+        success: false,
+        message: 'year harus angka 2000-2100',
+      });
+    }
+
+    const clientId = BigInt(clientIdInput);
+    const client = await this.prisma.db.client.findFirst({
+      where: { id: clientId, deleted_at: null },
+      select: { id: true, name: true, code: true },
+    });
+
+    if (!client) {
+      throw new NotFoundException({
+        success: false,
+        message: `Client dengan ID ${clientIdInput} tidak ditemukan`,
+      });
+    }
+
+    const periodStart = new Date(Date.UTC(yearInput, monthInput - 1, 1, 0, 0, 0, 0));
+    const periodEndExclusive = new Date(Date.UTC(yearInput, monthInput, 1, 0, 0, 0, 0));
+    const createdFrom = dateFromInput ? this.parseDateFromInput(dateFromInput) : null;
+    const createdToExclusive = dateToInput ? this.parseDateToExclusiveInput(dateToInput) : null;
+
+    if (createdFrom && createdToExclusive && createdToExclusive <= createdFrom) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Rentang created_at tidak valid: date_to harus lebih besar dari date_from',
+      });
+    }
+
+    const createdAtFilter = (createdFrom || createdToExclusive)
+      ? {
+          ...(createdFrom && { gte: createdFrom }),
+          ...(createdToExclusive && { lt: createdToExclusive }),
+        }
+      : undefined;
+
+    const contract = await this.prisma.db.contract.findFirst({
+      where: {
+        client_id: clientId,
+        contract_month: monthInput,
+        contract_year: yearInput,
+        deleted_at: null,
+        ...(createdAtFilter && { created_at: createdAtFilter }),
+      },
+      orderBy: [{ status: 'asc' }, { created_at: 'desc' }],
+      select: {
+        id: true,
+        client_id: true,
+        contract_number: true,
+        contract_month: true,
+        contract_year: true,
+        contract_value: true,
+      },
+    });
+
+    return {
+      client,
+      contract,
+      month: monthInput,
+      year: yearInput,
+      periodLabel: `${CONTRACT_RECAP_MONTH_NAMES[monthInput - 1]} ${yearInput}`,
+      periodStart,
+      periodEndExclusive,
+      createdFrom,
+      createdToExclusive,
+      shuttleWhere: {
+        client_id: clientId,
+        deleted_at: null,
+        scheduled_date: {
+          not: null,
+          gte: periodStart,
+          lt: periodEndExclusive,
+        },
+        ...(createdAtFilter && { created_at: createdAtFilter }),
+      } satisfies Prisma.ShuttleWhereInput,
+      filter: {
+        scheduled_from: periodStart.toISOString(),
+        scheduled_to_before: periodEndExclusive.toISOString(),
+        created_from: createdFrom?.toISOString() ?? null,
+        created_to_before: createdToExclusive?.toISOString() ?? null,
+      },
+    };
+  }
+
+  async findContractRecapShuttlesBatch(
+    context: Awaited<ReturnType<ContractService['buildContractRecapQueryContext']>>,
+    take: number,
+    cursorId?: bigint,
+  ) {
+    return this.prisma.db.shuttle.findMany({
+      where: context.shuttleWhere,
+      orderBy: CONTRACT_RECAP_SHUTTLE_ORDER_BY,
+      take,
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+      select: CONTRACT_RECAP_SHUTTLE_SELECT,
+    });
+  }
+
+  buildContractRecapShuttleRow(s: any) {
+    const shuttleCrew = s.crew_incentive ?? new Prisma.Decimal(0);
+    const shuttleFuel = s.fuel ?? new Prisma.Decimal(0);
+    const shuttleToll = s.toll_fee ?? new Prisma.Decimal(0);
+    const shuttleOthers = s.others ?? new Prisma.Decimal(0);
+    const shuttleTotal = shuttleCrew.add(shuttleFuel).add(shuttleToll).add(shuttleOthers);
+
+    return {
+      id: s.id.toString(),
+      shuttles_uuid: s.shuttles_uuid,
+      scheduled_date: s.scheduled_date,
+      status: s.status,
+      vehicle_plate_number: s.vehicle?.plate_number ?? null,
+      vehicle_type: s.vehicle?.vehicle_type ?? null,
+      route_origin: s.route?.origin ?? null,
+      route_destination: s.route?.destination ?? null,
+      crew_incentive: decimalToMoneyString(shuttleCrew),
+      fuel: decimalToMoneyString(shuttleFuel),
+      toll_fee: decimalToMoneyString(shuttleToll),
+      others: decimalToMoneyString(shuttleOthers),
+      total_cost: decimalToMoneyString(shuttleTotal),
+    };
+  }
+
+  private buildContractRecapResponse(
+    context: Awaited<ReturnType<ContractService['buildContractRecapQueryContext']>>,
+    shuttles: any[],
+  ) {
+    let crewIncentive = new Prisma.Decimal(0);
+    let fuel = new Prisma.Decimal(0);
+    let toll = new Prisma.Decimal(0);
+    let others = new Prisma.Decimal(0);
+
+    for (const s of shuttles) {
+      if (s.crew_incentive != null)
+        crewIncentive = crewIncentive.add(s.crew_incentive);
+      if (s.fuel != null)
+        fuel = fuel.add(s.fuel);
+      if (s.toll_fee != null)
+        toll = toll.add(s.toll_fee);
+      if (s.others != null)
+        others = others.add(s.others);
+    }
+
+    const totalExpense = crewIncentive.add(fuel).add(toll).add(others);
+    const contractValue = context.contract?.contract_value ?? new Prisma.Decimal(0);
+    const profit = contractValue.sub(totalExpense);
+
+    return {
+      client_id: context.client.id.toString(),
+      client_name: context.client.name,
+      client_code: context.client.code ?? null,
+      month: context.month,
+      year: context.year,
+      period_label: context.periodLabel,
+      contract: context.contract
+        ? {
+            id: context.contract.id.toString(),
+            contract_number: context.contract.contract_number ?? null,
+            contract_value: decimalToMoneyString(contractValue),
+          }
+        : null,
+      summary: {
+        contract_count: context.contract ? 1 : 0,
+        shuttle_trip_count: shuttles.length,
+        total_income: decimalToMoneyString(contractValue),
+        total_expense: decimalToMoneyString(totalExpense),
+        total_profit: decimalToMoneyString(profit),
+        expense_crew_incentive: decimalToMoneyString(crewIncentive),
+        expense_fuel: decimalToMoneyString(fuel),
+        expense_toll: decimalToMoneyString(toll),
+        expense_others: decimalToMoneyString(others),
+      },
+      shuttles: shuttles.map((s) => this.buildContractRecapShuttleRow(s)),
+      filter: context.filter,
+    };
   }
 
   private parseDateFromInput(raw: string): Date {
