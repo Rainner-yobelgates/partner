@@ -8,13 +8,19 @@ const router = createRouter({
   routes,
 })
 
+const toLoginRedirect = (path: string) => ({
+  path: '/login',
+  query: { redirect: path },
+})
+
 router.beforeEach(to => {
   const authStore = useAuthStore()
+  const hasValidSession = authStore.isSessionValid()
 
-  if (to.meta.requiresAuth && !authStore.isAuthenticated)
-    return { path: '/login', query: { redirect: to.fullPath } }
+  if (to.meta.requiresAuth && !hasValidSession)
+    return toLoginRedirect(to.fullPath)
 
-  if (to.meta.guestOnly && authStore.isAuthenticated)
+  if (to.meta.guestOnly && hasValidSession)
     return '/dashboard'
 
   const requiredPermission = typeof to.meta.permission === 'string' ? to.meta.permission : null
@@ -28,7 +34,7 @@ router.beforeEach(to => {
         })
         .catch(() => {
           authStore.logout()
-          return { path: '/login' }
+          return toLoginRedirect(to.fullPath)
         })
     }
 
@@ -36,6 +42,18 @@ router.beforeEach(to => {
       return { path: '/dashboard' }
   }
 })
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth:session-expired', () => {
+    const authStore = useAuthStore()
+    const currentRoute = router.currentRoute.value
+
+    authStore.logout()
+
+    if (currentRoute.path !== '/login')
+      void router.replace(toLoginRedirect(currentRoute.fullPath))
+  })
+}
 
 export default function (app: App) {
   app.use(router)

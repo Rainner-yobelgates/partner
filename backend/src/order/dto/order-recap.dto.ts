@@ -18,7 +18,7 @@ export class QueryOrderRecapDto {
   year!: number;
 
   @ApiPropertyOptional({
-    description: 'Filter tanggal dibuat (created_at) mulai (YYYY-MM-DD atau ISO datetime)',
+    description: 'Filter tanggal reservasi/penggunaan mulai (YYYY-MM-DD atau ISO datetime)',
     example: '2026-04-01',
   })
   @IsOptional()
@@ -26,7 +26,7 @@ export class QueryOrderRecapDto {
   date_from?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter tanggal dibuat (created_at) sampai (YYYY-MM-DD atau ISO datetime)',
+    description: 'Filter tanggal reservasi/penggunaan sampai (YYYY-MM-DD atau ISO datetime)',
     example: '2026-04-30',
   })
   @IsOptional()

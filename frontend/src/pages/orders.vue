@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 import { ApiError } from '@/services/http'
-import { orderService, type OrderItem, type OrderPayload, type OrderStatus, type TripSheetLink } from '@/services/orders'
+import { orderService, type OrderItem, type OrderPayload, type OrderStatus, type OrderVehicleItem, type TripSheetLink } from '@/services/orders'
 import {
   type MasterStatus,
   vehicleMasterService,
@@ -128,7 +128,7 @@ const selectedVehicleFallbackOptions = computed<VehicleOption[]>(() => {
         id: vehicleId,
         plate_number: ov.vehicle?.plate_number ?? null,
         vehicle_type: ov.vehicle?.vehicle_type ?? null,
-        hull_number: null,
+        hull_number: ov.vehicle?.hull_number ?? null,
       })
     })
 })
@@ -261,6 +261,20 @@ const formatOrderPeriod = (item: OrderItem) => {
 
   return formatDateOnly(startDate || finishDate)
 }
+
+const getOrderVehicleLabel = (item: OrderVehicleItem) => {
+  const vehicle = item.vehicle
+  const label = [
+    vehicle?.plate_number,
+    vehicle?.vehicle_type,
+  ].filter(Boolean).join(' - ')
+
+  return label || (item.vehicle_id ? `Kendaraan #${item.vehicle_id}` : '-')
+}
+
+const getOrderVehicleUnits = (item: OrderItem) => item.orderVehicles ?? []
+const getVisibleOrderVehicleUnits = (item: OrderItem) => getOrderVehicleUnits(item).slice(0, 2)
+const getHiddenOrderVehicleCount = (item: OrderItem) => Math.max(getOrderVehicleUnits(item).length - 2, 0)
 
 const buildTripSheetUrl = (orderNumber: string, uuid: string) => `/trip-sheets/${encodeURIComponent(orderNumber)}/${uuid}`
 
@@ -597,6 +611,7 @@ onMounted(async () => {
           <tr>
             <th>Nomor</th>
             <th>Start - Finish</th>
+            <th>Unit Kendaraan</th>
             <th>Tujuan</th>
             <th>Jumlah Kendaraan</th>
             <th>Total</th>
@@ -607,11 +622,31 @@ onMounted(async () => {
         </thead>
         <tbody>
           <tr v-if="!isLoading && rows.length === 0">
-            <td colspan="8" class="text-center text-medium-emphasis py-6">Data reservasi belum ada.</td>
+            <td colspan="9" class="text-center text-medium-emphasis py-6">Data reservasi belum ada.</td>
           </tr>
           <tr v-for="item in rows" :key="item.id">
             <td class="font-weight-medium">{{ item.order_number }}</td>
             <td>{{ formatOrderPeriod(item) }}</td>
+            <td class="vehicle-unit-cell">
+              <div v-if="getOrderVehicleUnits(item).length" class="d-flex flex-column align-start gap-1">
+                <VChip
+                  v-for="unit in getVisibleOrderVehicleUnits(item)"
+                  :key="unit.id || getOrderVehicleLabel(unit)"
+                  size="x-small"
+                  color="secondary"
+                  variant="tonal"
+                  label
+                  class="vehicle-unit-chip"
+                  :title="getOrderVehicleLabel(unit)"
+                >
+                  {{ getOrderVehicleLabel(unit) }}
+                </VChip>
+                <span v-if="getHiddenOrderVehicleCount(item)" class="text-caption text-medium-emphasis">
+                  +{{ getHiddenOrderVehicleCount(item) }} kendaraan lagi
+                </span>
+              </div>
+              <span v-else>-</span>
+            </td>
             <td>{{ getDestination(item) || '-' }}</td>
             <td>{{ item.total_vehicles ?? '-' }}</td>
             <td>{{ formatMoneyTable(item.total_amount) }}</td>
@@ -928,3 +963,22 @@ onMounted(async () => {
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">{{ snackbar.text }}</VSnackbar>
 </template>
+
+<style scoped>
+.vehicle-unit-cell {
+  min-width: 180px;
+  max-width: 240px;
+  white-space: normal;
+}
+
+.vehicle-unit-chip {
+  max-width: 220px;
+}
+
+.vehicle-unit-chip :deep(.v-chip__content) {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

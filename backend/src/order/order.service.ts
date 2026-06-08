@@ -23,6 +23,9 @@ const ORDER_RECAP_SELECT = {
   order_number: true,
   customer_name: true,
   customer_phone: true,
+  usage_date: true,
+  start_date: true,
+  finish_date: true,
   destination: true,
   dropoff_location: true,
   total_amount: true,
@@ -32,6 +35,16 @@ const ORDER_RECAP_SELECT = {
   orderVehicles: {
     where: { deleted_at: null },
     select: {
+      id: true,
+      vehicle_id: true,
+      vehicle: {
+        select: {
+          id: true,
+          plate_number: true,
+          hull_number: true,
+          vehicle_type: true,
+        },
+      },
       tripSheets: {
         where: { deleted_at: null },
         select: {
@@ -102,32 +115,44 @@ export class OrderService {
   buildRecapQueryContext(query: QueryOrderRecapDto) {
     const monthStart = new Date(Date.UTC(query.year, query.month - 1, 1, 0, 0, 0, 0));
     const monthEndExclusive = new Date(Date.UTC(query.year, query.month, 1, 0, 0, 0, 0));
-    let start = monthStart;
-    let endExclusive = monthEndExclusive;
-
-    if (query.date_from) {
-      const dateFrom = this.parseDateFromInput(query.date_from);
-      if (dateFrom > start)
-        start = dateFrom;
-    }
-
-    if (query.date_to) {
-      const dateToExclusive = this.parseDateToExclusiveInput(query.date_to);
-      if (dateToExclusive < endExclusive)
-        endExclusive = dateToExclusive;
-    }
+    const start = query.date_from ? this.parseDateFromInput(query.date_from) : monthStart;
+    const endExclusive = query.date_to ? this.parseDateToExclusiveInput(query.date_to) : monthEndExclusive;
 
     if (endExclusive <= start) {
       throw new BadRequestException({
         success: false,
-        message: 'Rentang created_at tidak valid: date_to harus lebih besar dari date_from',
+        message: 'Rentang tanggal tidak valid: date_to harus lebih besar dari date_from',
       });
     }
 
     return {
       where: {
         deleted_at: null,
-        created_at: { gte: start, lt: endExclusive },
+        OR: [
+          {
+            AND: [
+              { start_date: { not: null, lt: endExclusive } },
+              {
+                OR: [
+                  { finish_date: { gte: start } },
+                  { AND: [{ finish_date: null }, { start_date: { gte: start } }] },
+                ],
+              },
+            ],
+          },
+          {
+            AND: [
+              { start_date: null },
+              { usage_date: { not: null, lt: endExclusive } },
+              {
+                OR: [
+                  { finish_date: { gte: start } },
+                  { AND: [{ finish_date: null }, { usage_date: { gte: start } }] },
+                ],
+              },
+            ],
+          },
+        ],
       } satisfies Prisma.OrderWhereInput,
       filter: {
         month: query.month,
@@ -164,9 +189,13 @@ export class OrderService {
       order_number: order.order_number,
       customer_name: order.customer_name,
       customer_phone: order.customer_phone,
+      usage_date: order.usage_date,
+      start_date: order.start_date ?? order.usage_date ?? null,
+      finish_date: order.finish_date ?? order.usage_date ?? null,
       destination: order.destination ?? order.dropoff_location ?? null,
       status: order.status,
       created_at: order.created_at,
+      vehicle_units: this.buildRecapVehicleUnits(order.orderVehicles),
       trip_sheet_count: agg.tripSheetCount,
       income: decimalToMoneyString(income),
       driver_allowance: decimalToMoneyString(order.driver_allowance),
@@ -255,6 +284,25 @@ export class OrderService {
     return { crew, fuel, toll, parking, stay, others, total, tripSheetCount };
   }
 
+  private buildRecapVehicleUnits(
+    orderVehicles: Array<{
+      vehicle_id?: bigint | null;
+      vehicle?: {
+        id: bigint;
+        plate_number: string | null;
+        hull_number: string | null;
+        vehicle_type: string | null;
+      } | null;
+    }> = [],
+  ) {
+    return orderVehicles.map((orderVehicle) => ({
+      id: orderVehicle.vehicle?.id?.toString() ?? orderVehicle.vehicle_id?.toString() ?? null,
+      plate_number: orderVehicle.vehicle?.plate_number ?? null,
+      hull_number: orderVehicle.vehicle?.hull_number ?? null,
+      vehicle_type: orderVehicle.vehicle?.vehicle_type ?? null,
+    }));
+  }
+
   async findAll(query: QueryOrderDto) {
     const page = Number(query.page) || 1;
     const perPage = Number(query.perPage) || 10;
@@ -313,6 +361,25 @@ export class OrderService {
             notes: true,
             created_at: true,
             updated_at: true,
+            orderVehicles: {
+              where: { deleted_at: null },
+              select: {
+                id: true,
+                order_vehicles_uuid: true,
+                vehicle_id: true,
+                status: true,
+                created_at: true,
+                updated_at: true,
+                vehicle: {
+                  select: {
+                    id: true,
+                    plate_number: true,
+                    hull_number: true,
+                    vehicle_type: true,
+                  },
+                },
+              },
+            },
           },
         }),
         this.prisma.db.order.count({ where }),
@@ -373,7 +440,7 @@ export class OrderService {
               status: true,
               created_at: true,
               updated_at: true,
-              vehicle: { select: { id: true, plate_number: true, vehicle_type: true } },
+              vehicle: { select: { id: true, plate_number: true, hull_number: true, vehicle_type: true } },
               driver: { select: { id: true, name: true } },
               assistantDriver: { select: { id: true, name: true } },
               tripSheets: {
@@ -878,9 +945,14 @@ export class OrderService {
   }
 
   private serializeOrder(order: any) {
+    const orderVehicles = Array.isArray(order.orderVehicles)
+      ? order.orderVehicles.map((orderVehicle: any) => this.serializeOrderVehicle(orderVehicle))
+      : order.orderVehicles;
+
     return {
       ...order,
       id: order.id?.toString(),
+      orderVehicles,
       total_amount: decimalToMoneyString(order.total_amount),
       driver_allowance: decimalToMoneyString(order.driver_allowance),
       start_date: order.start_date ?? order.usage_date ?? null,

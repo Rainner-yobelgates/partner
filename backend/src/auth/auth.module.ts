@@ -17,7 +17,7 @@ import { getJwtSecret } from './jwt-secret';
         inject: [ConfigService],
             useFactory: async (config: ConfigService) => ({
                 secret: getJwtSecret(config),
-                signOptions: { expiresIn: '1h' },
+                signOptions: { expiresIn: '5h' },
             }),
         }),
     ],

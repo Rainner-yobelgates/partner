@@ -14,6 +14,7 @@ export type OrderVehicleItem = {
   vehicle?: {
     id: string
     plate_number?: string | null
+    hull_number?: string | null
     vehicle_type?: string | null
   } | null
   driver?: {
@@ -133,9 +134,18 @@ export type OrderRecapRow = {
   order_number: string
   customer_name?: string | null
   customer_phone?: string | null
+  usage_date?: string | null
+  start_date?: string | null
+  finish_date?: string | null
   destination?: string | null
   status?: OrderStatus | null
   created_at: string
+  vehicle_units?: {
+    id: string | null
+    plate_number?: string | null
+    hull_number?: string | null
+    vehicle_type?: string | null
+  }[]
   trip_sheet_count: number
   income: string | null
   driver_allowance: string | null

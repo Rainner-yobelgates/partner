@@ -102,6 +102,43 @@ const formatDate = (value?: string | null) => {
   return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
+const formatDateOnly = (value?: string | null) => {
+  if (!value)
+    return '-'
+  return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(value))
+}
+
+const formatRecapPeriod = (row?: OrderRecapRow | null) => {
+  if (!row)
+    return '-'
+
+  const start = row.start_date || row.usage_date || null
+  const finish = row.finish_date || row.usage_date || null
+
+  if (!start && !finish)
+    return '-'
+
+  if (start && finish)
+    return `${formatDateOnly(start)} - ${formatDateOnly(finish)}`
+
+  return formatDateOnly(start || finish)
+}
+
+type RecapVehicleUnit = NonNullable<OrderRecapRow['vehicle_units']>[number]
+
+const getRecapVehicleLabel = (unit: RecapVehicleUnit) => {
+  const label = [
+    unit.plate_number,
+    unit.vehicle_type,
+  ].filter(Boolean).join(' - ')
+
+  return label || (unit.id ? `Kendaraan #${unit.id}` : '-')
+}
+
+const getRecapVehicleUnits = (row?: OrderRecapRow | null) => row?.vehicle_units ?? []
+const getVisibleRecapVehicleUnits = (row?: OrderRecapRow | null) => getRecapVehicleUnits(row).slice(0, 2)
+const getHiddenRecapVehicleCount = (row?: OrderRecapRow | null) => Math.max(getRecapVehicleUnits(row).length - 2, 0)
+
 const profitClass = (value?: string | null) => {
   if (value == null || value === '')
     return ''
@@ -310,14 +347,14 @@ onBeforeUnmount(stopExportPolling)
         <VCol cols="12" sm="6" md="3">
           <VTextField
             v-model="startDate"
-            label="Start Date (Created)"
+            label="Start Date"
             type="date"
           />
         </VCol>
         <VCol cols="12" sm="6" md="3">
           <VTextField
             v-model="endDate"
-            label="End Date (Created)"
+            label="End Date"
             type="date"
           />
         </VCol>
@@ -384,6 +421,8 @@ onBeforeUnmount(stopExportPolling)
               <th>No. Reservasi</th>
               <th>Customer</th>
               <th>Telepon</th>
+              <th>Start - Finish</th>
+              <th>Unit Kendaraan</th>
               <th>Tujuan</th>
               <th>Dibuat</th>
               <th>Status</th>
@@ -403,7 +442,7 @@ onBeforeUnmount(stopExportPolling)
           </thead>
           <tbody>
             <tr v-if="!isLoading && rows.length === 0">
-              <td colspan="18" class="text-center text-medium-emphasis py-8">
+              <td colspan="20" class="text-center text-medium-emphasis py-8">
                 Tidak ada reservasi pada periode ini.
               </td>
             </tr>
@@ -411,6 +450,27 @@ onBeforeUnmount(stopExportPolling)
               <td class="font-weight-medium">{{ row.order_number }}</td>
               <td>{{ row.customer_name || '-' }}</td>
               <td>{{ row.customer_phone || '-' }}</td>
+              <td>{{ formatRecapPeriod(row) }}</td>
+              <td class="vehicle-unit-cell">
+                <div v-if="getRecapVehicleUnits(row).length" class="d-flex flex-column align-start gap-1">
+                  <VChip
+                    v-for="unit in getVisibleRecapVehicleUnits(row)"
+                    :key="unit.id || getRecapVehicleLabel(unit)"
+                    size="x-small"
+                    color="secondary"
+                    variant="tonal"
+                    label
+                    class="vehicle-unit-chip"
+                    :title="getRecapVehicleLabel(unit)"
+                  >
+                    {{ getRecapVehicleLabel(unit) }}
+                  </VChip>
+                  <span v-if="getHiddenRecapVehicleCount(row)" class="text-caption text-medium-emphasis">
+                    +{{ getHiddenRecapVehicleCount(row) }} kendaraan lagi
+                  </span>
+                </div>
+                <span v-else>-</span>
+              </td>
               <td>{{ row.destination || '-' }}</td>
               <td>{{ formatDate(row.created_at) }}</td>
               <td>
@@ -475,8 +535,38 @@ onBeforeUnmount(stopExportPolling)
           <VCol cols="12" md="4">
             <VCard variant="tonal" class="h-100">
               <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Start - Finish</div>
+                <div class="text-body-1 font-weight-medium text-break">{{ formatRecapPeriod(detailRow) }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
                 <div class="text-caption text-medium-emphasis mb-1">Tujuan</div>
                 <div class="text-body-1 font-weight-medium text-break">{{ detailRow?.destination || '-' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Unit Kendaraan</div>
+                <div v-if="getRecapVehicleUnits(detailRow).length" class="d-flex flex-column align-start gap-1">
+                  <VChip
+                    v-for="unit in getRecapVehicleUnits(detailRow)"
+                    :key="unit.id || getRecapVehicleLabel(unit)"
+                    size="x-small"
+                    color="secondary"
+                    variant="tonal"
+                    label
+                    class="vehicle-unit-chip"
+                    :title="getRecapVehicleLabel(unit)"
+                  >
+                    {{ getRecapVehicleLabel(unit) }}
+                  </VChip>
+                </div>
+                <div v-else class="text-body-1 font-weight-medium text-break">-</div>
               </VCardText>
             </VCard>
           </VCol>
@@ -546,3 +636,22 @@ onBeforeUnmount(stopExportPolling)
 
   <VSnackbar v-model="snackbar.show" :color="snackbar.color" timeout="2800">{{ snackbar.text }}</VSnackbar>
 </template>
+
+<style scoped>
+.vehicle-unit-cell {
+  min-width: 190px;
+  max-width: 250px;
+  white-space: normal;
+}
+
+.vehicle-unit-chip {
+  max-width: 230px;
+}
+
+.vehicle-unit-chip :deep(.v-chip__content) {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

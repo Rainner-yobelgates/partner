@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { request } from '@/services/http'
+import { getJwtExpiresAt, isJwtExpired } from '@/utils/jwt'
 
 type LoginResponse = {
   success: boolean
@@ -35,8 +36,54 @@ export const useAuthStore = defineStore('auth', () => {
   const roleId = ref<string | null>(localStorage.getItem('role_id') || null)
   const permissions = ref<string[]>(initialPermissions)
   const isPermissionsLoaded = ref(false)
+  let expiryTimer: number | undefined
 
-  const isAuthenticated = computed(() => Boolean(accessToken.value))
+  const isAuthenticated = computed(() => Boolean(accessToken.value) && !isJwtExpired(accessToken.value))
+
+  const stopSessionExpiryTimer = () => {
+    if (expiryTimer !== undefined) {
+      window.clearTimeout(expiryTimer)
+      expiryTimer = undefined
+    }
+  }
+
+  const notifySessionExpired = () => {
+    window.dispatchEvent(new CustomEvent('auth:session-expired'))
+  }
+
+  const expireSession = () => {
+    logout()
+    notifySessionExpired()
+  }
+
+  const startSessionExpiryTimer = () => {
+    stopSessionExpiryTimer()
+
+    const expiresAt = getJwtExpiresAt(accessToken.value)
+    if (!expiresAt)
+      return
+
+    const delay = expiresAt - Date.now()
+    if (delay <= 0) {
+      expireSession()
+      return
+    }
+
+    expiryTimer = window.setTimeout(expireSession, delay)
+  }
+
+  const isSessionValid = () => {
+    if (!accessToken.value)
+      return false
+
+    if (isJwtExpired(accessToken.value)) {
+      expireSession()
+      return false
+    }
+
+    startSessionExpiryTimer()
+    return true
+  }
 
   const login = async (username: string, password: string) => {
     const response = await request<LoginResponse>('/auth/login', {
@@ -54,10 +101,11 @@ export const useAuthStore = defineStore('auth', () => {
     else
       localStorage.removeItem('role_id')
     localStorage.setItem('permissions', JSON.stringify(permissions.value))
+    startSessionExpiryTimer()
   }
 
   const loadPermissions = async () => {
-    if (!accessToken.value) {
+    if (!isSessionValid()) {
       permissions.value = []
       roleId.value = null
       isPermissionsLoaded.value = true
@@ -84,10 +132,13 @@ export const useAuthStore = defineStore('auth', () => {
     roleId.value = null
     permissions.value = []
     isPermissionsLoaded.value = false
+    stopSessionExpiryTimer()
     localStorage.removeItem('access_token')
     localStorage.removeItem('role_id')
     localStorage.removeItem('permissions')
   }
+
+  startSessionExpiryTimer()
 
   return {
     accessToken,
@@ -98,6 +149,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     loadPermissions,
     hasPermission,
+    isSessionValid,
     logout,
   }
 })

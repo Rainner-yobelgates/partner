@@ -227,7 +227,9 @@ export class OrderRecapExportService implements OnModuleInit {
       { key: 'order_number', width: 24 },
       { key: 'customer_name', width: 28 },
       { key: 'customer_phone', width: 18 },
-      { key: 'destination', width: 36 },
+      { key: 'start_finish', width: 24 },
+      { key: 'vehicle_units', width: 36 },
+      { key: 'destination', width: 32 },
       { key: 'created_at', width: 20, style: { numFmt: 'dd/mm/yyyy hh:mm' } },
       { key: 'status', width: 16 },
       { key: 'trip_sheet_count', width: 12 },
@@ -248,6 +250,8 @@ export class OrderRecapExportService implements OnModuleInit {
       'No. Reservasi',
       'Customer',
       'Telepon',
+      'Start - Finish',
+      'Unit Kendaraan',
       'Tujuan',
       'Dibuat',
       'Status',
@@ -274,7 +278,7 @@ export class OrderRecapExportService implements OnModuleInit {
     const generatedAt = new Date();
 
     const titleRow = worksheet.addRow(['REKAP RESERVASI']);
-    worksheet.mergeCells('A1:R1');
+    worksheet.mergeCells('A1:T1');
     titleRow.height = 24;
     titleRow.getCell(1).font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
     titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F4E78' } };
@@ -282,14 +286,14 @@ export class OrderRecapExportService implements OnModuleInit {
     titleRow.commit();
 
     const periodRow = worksheet.addRow([`Periode: ${dateRangeText}`]);
-    worksheet.mergeCells('A2:R2');
+    worksheet.mergeCells('A2:T2');
     periodRow.getCell(1).font = { bold: true, color: { argb: 'FF1F2937' } };
     periodRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF3F8' } };
     periodRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
     periodRow.commit();
 
     const generatedRow = worksheet.addRow([`Dibuat: ${this.formatDateTime(generatedAt)} | Filter bulan/tahun: ${filters.month}/${filters.year}`]);
-    worksheet.mergeCells('A3:R3');
+    worksheet.mergeCells('A3:T3');
     generatedRow.getCell(1).font = { italic: true, color: { argb: 'FF4B5563' } };
     generatedRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
     generatedRow.commit();
@@ -323,12 +327,15 @@ export class OrderRecapExportService implements OnModuleInit {
         const income = this.toNumber(row.income);
         const totalExpenseRow = this.toNumber(row.total_expense);
         const profit = this.toNumber(row.profit);
+        const vehicleUnits = this.formatVehicleUnits(row.vehicle_units);
 
         const dataRow = worksheet.addRow({
           no: rowNo,
           order_number: row.order_number,
           customer_name: row.customer_name ?? '',
           customer_phone: row.customer_phone ?? '',
+          start_finish: this.formatOrderPeriod(row),
+          vehicle_units: vehicleUnits,
           destination: row.destination ?? '',
           created_at: row.created_at,
           status: row.status ?? '',
@@ -348,15 +355,16 @@ export class OrderRecapExportService implements OnModuleInit {
         dataRow.eachCell((cell, colNumber) => {
           cell.border = border;
           cell.alignment = {
-            horizontal: colNumber === 1 || colNumber === 7 || colNumber === 8
+            horizontal: colNumber === 1 || colNumber === 9 || colNumber === 10
               ? 'center'
-              : (colNumber >= 9 ? 'right' : 'left'),
+              : (colNumber >= 11 ? 'right' : 'left'),
             vertical: 'middle',
-            wrapText: colNumber === 5,
+            wrapText: colNumber === 5 || colNumber === 6 || colNumber === 7,
           };
         });
-        dataRow.getCell(6).numFmt = 'dd/mm/yyyy hh:mm';
-        for (let col = 9; col <= 18; col += 1)
+        dataRow.height = Math.max(18, Math.min(64, (vehicleUnits.split('\n').length || 1) * 16));
+        dataRow.getCell(8).numFmt = 'dd/mm/yyyy hh:mm';
+        for (let col = 11; col <= 20; col += 1)
           dataRow.getCell(col).numFmt = moneyFormat;
 
         if (rowNo % 2 === 0) {
@@ -509,6 +517,46 @@ export class OrderRecapExportService implements OnModuleInit {
 
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  private formatOrderPeriod(row: {
+    usage_date?: string | Date | null;
+    start_date?: string | Date | null;
+    finish_date?: string | Date | null;
+  }) {
+    const start = row.start_date ?? row.usage_date ?? null;
+    const finish = row.finish_date ?? row.usage_date ?? null;
+
+    if (!start && !finish)
+      return '';
+
+    if (start && finish)
+      return `${this.formatDateOnly(start)} - ${this.formatDateOnly(finish)}`;
+
+    return this.formatDateOnly(start ?? finish!);
+  }
+
+  private formatVehicleUnits(units?: Array<{
+    id?: string | null;
+    plate_number?: string | null;
+    hull_number?: string | null;
+    vehicle_type?: string | null;
+  }> | null) {
+    if (!units?.length)
+      return '';
+
+    return units
+      .map((unit) => {
+        const label = [
+          unit.plate_number,
+          unit.vehicle_type,
+          unit.hull_number,
+        ].filter(Boolean).join(' - ');
+
+        return label || (unit.id ? `Kendaraan #${unit.id}` : '');
+      })
+      .filter(Boolean)
+      .join('\n');
   }
 
   private getInclusiveEndDate(endExclusive: string) {

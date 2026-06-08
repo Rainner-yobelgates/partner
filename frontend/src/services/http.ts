@@ -1,4 +1,5 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios'
+import { isJwtExpired } from '@/utils/jwt'
 
 type ApiErrorPayload = {
   success?: boolean
@@ -42,6 +43,10 @@ const clearSession = () => {
   localStorage.removeItem('permissions')
 }
 
+const notifySessionExpired = () => {
+  window.dispatchEvent(new CustomEvent('auth:session-expired'))
+}
+
 type RequestOptions = Omit<RequestInit, 'body'> & {
   body?: unknown
 }
@@ -55,6 +60,13 @@ export const httpClient = axios.create({
 
 httpClient.interceptors.request.use(config => {
   const token = getAccessToken()
+  if (token && isJwtExpired(token)) {
+    clearSession()
+    notifySessionExpired()
+
+    throw new ApiError('Sesi login sudah habis. Silakan masuk kembali.', 401)
+  }
+
   if (token)
     config.headers.Authorization = `Bearer ${token}`
 
@@ -64,8 +76,12 @@ httpClient.interceptors.request.use(config => {
 httpClient.interceptors.response.use(
   response => response,
   (error: AxiosError<ApiErrorPayload>) => {
-    if (error.response?.status === 401)
+    const isLoginRequest = error.config?.url?.includes('/auth/login')
+
+    if (error.response?.status === 401 && !isLoginRequest) {
       clearSession()
+      notifySessionExpired()
+    }
 
     return Promise.reject(error)
   },
@@ -119,4 +135,3 @@ export async function request<TResponse>(path: string, options: RequestOptions =
     throw error instanceof Error ? error : new ApiError('Request failed', 500)
   }
 }
-
