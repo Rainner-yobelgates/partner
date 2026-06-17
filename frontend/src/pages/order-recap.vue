@@ -436,13 +436,14 @@ onBeforeUnmount(stopExportPolling)
               <th class="text-end">Inap</th>
               <th class="text-end">Lain-lain</th>
               <th class="text-end">Total keluar</th>
+              <th class="text-end">Sisa Uang Jalan</th>
               <th class="text-end">Keuntungan</th>
               <th class="text-end">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="!isLoading && rows.length === 0">
-              <td colspan="20" class="text-center text-medium-emphasis py-8">
+              <td colspan="21" class="text-center text-medium-emphasis py-8">
                 Tidak ada reservasi pada periode ini.
               </td>
             </tr>
@@ -492,6 +493,7 @@ onBeforeUnmount(stopExportPolling)
               <td class="text-end">{{ formatMoneyTable(row.expense_stay) }}</td>
               <td class="text-end">{{ formatMoneyTable(row.expense_others) }}</td>
               <td class="text-end">{{ formatMoneyTable(row.total_expense) }}</td>
+              <td class="text-end" :class="profitClass(row.allowance_balance)">{{ formatMoneyTable(row.allowance_balance) }}</td>
               <td class="text-end" :class="profitClass(row.profit)">{{ formatMoneyTable(row.profit) }}</td>
               <td class="text-end">
                 <VBtn size="small" variant="text" color="secondary" @click="openDetailDialog(row)">Detail</VBtn>
@@ -615,6 +617,14 @@ onBeforeUnmount(stopExportPolling)
               <VCardText>
                 <div class="text-caption text-medium-emphasis mb-1">Total Pengeluaran</div>
                 <div class="text-body-1 font-weight-medium text-break">{{ formatMoneyId(detailRow?.total_expense) }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol cols="12" md="4">
+            <VCard variant="tonal" class="h-100">
+              <VCardText>
+                <div class="text-caption text-medium-emphasis mb-1">Sisa Uang Jalan</div>
+                <div class="text-body-1 font-weight-medium text-break" :class="profitClass(detailRow?.allowance_balance)">{{ formatMoneyId(detailRow?.allowance_balance) }}</div>
               </VCardText>
             </VCard>
           </VCol>

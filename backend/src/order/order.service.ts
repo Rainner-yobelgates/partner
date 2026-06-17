@@ -180,7 +180,11 @@ export class OrderService {
   buildRecapRow(order: any) {
     const agg = this.aggregateTripSheetCosts(order.orderVehicles);
     const income = order.total_amount != null ? new Prisma.Decimal(order.total_amount as any) : new Prisma.Decimal(0);
+    const driverAllowance = order.driver_allowance != null
+      ? new Prisma.Decimal(order.driver_allowance as any)
+      : new Prisma.Decimal(0);
     const expense = agg.total;
+    const allowance_balance = driverAllowance.sub(expense);
     const profit = income.sub(expense);
 
     return {
@@ -198,7 +202,7 @@ export class OrderService {
       vehicle_units: this.buildRecapVehicleUnits(order.orderVehicles),
       trip_sheet_count: agg.tripSheetCount,
       income: decimalToMoneyString(income),
-      driver_allowance: decimalToMoneyString(order.driver_allowance),
+      driver_allowance: decimalToMoneyString(driverAllowance),
       expense_crew: decimalToMoneyString(agg.crew),
       expense_fuel: decimalToMoneyString(agg.fuel),
       expense_toll: decimalToMoneyString(agg.toll),
@@ -206,6 +210,7 @@ export class OrderService {
       expense_stay: decimalToMoneyString(agg.stay),
       expense_others: decimalToMoneyString(agg.others),
       total_expense: decimalToMoneyString(expense),
+      allowance_balance: decimalToMoneyString(allowance_balance),
       profit: decimalToMoneyString(profit),
     };
   }

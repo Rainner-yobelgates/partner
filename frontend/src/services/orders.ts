@@ -156,6 +156,7 @@ export type OrderRecapRow = {
   expense_stay: string | null
   expense_others: string | null
   total_expense: string | null
+  allowance_balance: string | null
   profit: string | null
 }
 

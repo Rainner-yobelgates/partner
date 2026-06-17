@@ -242,6 +242,7 @@ export class OrderRecapExportService implements OnModuleInit {
       { key: 'expense_stay', width: 18, style: { numFmt: '#,##0.00' } },
       { key: 'expense_others', width: 18, style: { numFmt: '#,##0.00' } },
       { key: 'total_expense', width: 18, style: { numFmt: '#,##0.00' } },
+      { key: 'allowance_balance', width: 18, style: { numFmt: '#,##0.00' } },
       { key: 'profit', width: 18, style: { numFmt: '#,##0.00' } },
     ];
 
@@ -265,6 +266,7 @@ export class OrderRecapExportService implements OnModuleInit {
       'Inap',
       'Lain-lain',
       'Total Keluar',
+      'Sisa Uang Jalan',
       'Keuntungan',
     ];
     const moneyFormat = '#,##0.00';
@@ -278,7 +280,7 @@ export class OrderRecapExportService implements OnModuleInit {
     const generatedAt = new Date();
 
     const titleRow = worksheet.addRow(['REKAP RESERVASI']);
-    worksheet.mergeCells('A1:T1');
+    worksheet.mergeCells('A1:U1');
     titleRow.height = 24;
     titleRow.getCell(1).font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
     titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F4E78' } };
@@ -286,14 +288,14 @@ export class OrderRecapExportService implements OnModuleInit {
     titleRow.commit();
 
     const periodRow = worksheet.addRow([`Periode: ${dateRangeText}`]);
-    worksheet.mergeCells('A2:T2');
+    worksheet.mergeCells('A2:U2');
     periodRow.getCell(1).font = { bold: true, color: { argb: 'FF1F2937' } };
     periodRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF3F8' } };
     periodRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
     periodRow.commit();
 
     const generatedRow = worksheet.addRow([`Dibuat: ${this.formatDateTime(generatedAt)} | Filter bulan/tahun: ${filters.month}/${filters.year}`]);
-    worksheet.mergeCells('A3:T3');
+    worksheet.mergeCells('A3:U3');
     generatedRow.getCell(1).font = { italic: true, color: { argb: 'FF4B5563' } };
     generatedRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
     generatedRow.commit();
@@ -349,6 +351,7 @@ export class OrderRecapExportService implements OnModuleInit {
           expense_stay: this.toNumber(row.expense_stay),
           expense_others: this.toNumber(row.expense_others),
           total_expense: totalExpenseRow,
+          allowance_balance: this.toNumber(row.allowance_balance),
           profit,
         });
 
@@ -364,7 +367,7 @@ export class OrderRecapExportService implements OnModuleInit {
         });
         dataRow.height = Math.max(18, Math.min(64, (vehicleUnits.split('\n').length || 1) * 16));
         dataRow.getCell(8).numFmt = 'dd/mm/yyyy hh:mm';
-        for (let col = 11; col <= 20; col += 1)
+        for (let col = 11; col <= 21; col += 1)
           dataRow.getCell(col).numFmt = moneyFormat;
 
         if (rowNo % 2 === 0) {
