@@ -16,6 +16,7 @@ import { CreateOrderDto, QueryOrderDto, UpdateOrderDto } from './dto/order.dto';
 import { QueryOrderRecapDto } from './dto/order-recap.dto';
 
 const ORDER_RECAP_ORDER_BY = [{ created_at: 'asc' as const }, { id: 'asc' as const }];
+const JAKARTA_UTC_OFFSET_MINUTES = 7 * 60;
 
 const ORDER_RECAP_SELECT = {
   id: true,
@@ -103,8 +104,8 @@ export class OrderService {
         filter: {
           month: context.filter.month,
           year: context.filter.year,
-          created_from: context.filter.created_from,
-          created_to_before: context.filter.created_to_before,
+          period_from: context.filter.period_from,
+          period_to_before: context.filter.period_to_before,
         },
       };
     } catch (error: unknown) {
@@ -113,8 +114,8 @@ export class OrderService {
   }
 
   buildRecapQueryContext(query: QueryOrderRecapDto) {
-    const monthStart = new Date(Date.UTC(query.year, query.month - 1, 1, 0, 0, 0, 0));
-    const monthEndExclusive = new Date(Date.UTC(query.year, query.month, 1, 0, 0, 0, 0));
+    const monthStart = this.createJakartaDateBoundary(query.year, query.month, 1);
+    const monthEndExclusive = this.createJakartaDateBoundary(query.year, query.month + 1, 1);
     const start = query.date_from ? this.parseDateFromInput(query.date_from) : monthStart;
     const endExclusive = query.date_to ? this.parseDateToExclusiveInput(query.date_to) : monthEndExclusive;
 
@@ -157,8 +158,8 @@ export class OrderService {
       filter: {
         month: query.month,
         year: query.year,
-        created_from: start.toISOString(),
-        created_to_before: endExclusive.toISOString(),
+        period_from: start.toISOString(),
+        period_to_before: endExclusive.toISOString(),
       },
     };
   }
@@ -217,7 +218,7 @@ export class OrderService {
 
   private parseDateFromInput(raw: string): Date {
     const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
-    const date = dateOnly ? new Date(`${raw}T00:00:00.000Z`) : new Date(raw);
+    const date = dateOnly ? this.parseJakartaDateOnly(raw) : new Date(raw);
 
     if (Number.isNaN(date.getTime())) {
       throw new BadRequestException({
@@ -231,7 +232,7 @@ export class OrderService {
 
   private parseDateToExclusiveInput(raw: string): Date {
     const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
-    const date = dateOnly ? new Date(`${raw}T00:00:00.000Z`) : new Date(raw);
+    const date = dateOnly ? this.parseJakartaDateOnly(raw) : new Date(raw);
 
     if (Number.isNaN(date.getTime())) {
       throw new BadRequestException({
@@ -246,6 +247,15 @@ export class OrderService {
     }
 
     return date;
+  }
+
+  private parseJakartaDateOnly(raw: string): Date {
+    const [year, month, day] = raw.split('-').map(Number);
+    return this.createJakartaDateBoundary(year, month, day);
+  }
+
+  private createJakartaDateBoundary(year: number, month: number, day: number): Date {
+    return new Date(Date.UTC(year, month - 1, day, 0, -JAKARTA_UTC_OFFSET_MINUTES, 0, 0));
   }
 
   private decimalFromMoneyString(value: string | null | undefined) {

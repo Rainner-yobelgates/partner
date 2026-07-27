@@ -130,8 +130,8 @@ export class ContractController {
   @ApiQuery({ name: 'client_id', required: true, example: '1', description: 'ID client' })
   @ApiQuery({ name: 'month', required: true, example: '4', description: 'Bulan (1-12)' })
   @ApiQuery({ name: 'year', required: true, example: '2026', description: 'Tahun (YYYY)' })
-  @ApiQuery({ name: 'date_from', required: false, example: '2026-04-01', description: 'Filter created_at mulai (YYYY-MM-DD / ISO datetime)' })
-  @ApiQuery({ name: 'date_to', required: false, example: '2026-04-30', description: 'Filter created_at sampai (YYYY-MM-DD / ISO datetime)' })
+  @ApiQuery({ name: 'date_from', required: false, example: '2026-04-01', description: 'Filter jadwal antar jemput mulai (YYYY-MM-DD / ISO datetime)' })
+  @ApiQuery({ name: 'date_to', required: false, example: '2026-04-30', description: 'Filter jadwal antar jemput sampai (YYYY-MM-DD / ISO datetime)' })
   @ApiResponse({ status: 200, description: 'Berhasil' })
   recap(@Query() query: QueryContractRecapDto) {
     return this.contractService.recapByClientMonthYear(
@@ -335,4 +335,3 @@ export class ContractController {
     return this.contractService.remove(id, user);
   }
 }
-

@@ -19,7 +19,7 @@ export class QueryContractRecapDto {
   year!: string;
 
   @ApiPropertyOptional({
-    description: 'Filter tanggal dibuat (created_at) mulai (YYYY-MM-DD atau ISO datetime)',
+    description: 'Filter tanggal jadwal antar jemput mulai (YYYY-MM-DD atau ISO datetime)',
     example: '2026-04-01',
   })
   @Transform(({ value }) => (value === '' ? undefined : value))
@@ -28,7 +28,7 @@ export class QueryContractRecapDto {
   date_from?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter tanggal dibuat (created_at) sampai (YYYY-MM-DD atau ISO datetime)',
+    description: 'Filter tanggal jadwal antar jemput sampai (YYYY-MM-DD atau ISO datetime)',
     example: '2026-04-30',
   })
   @Transform(({ value }) => (value === '' ? undefined : value))

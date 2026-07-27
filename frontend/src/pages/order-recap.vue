@@ -17,7 +17,7 @@ const endDate = ref('')
 const isLoading = ref(false)
 const rows = ref<OrderRecapRow[]>([])
 const summary = ref<OrderRecapSummary | null>(null)
-const filterMeta = ref<{ created_from: string; created_to_before: string } | null>(null)
+const filterMeta = ref<{ period_from: string; period_to_before: string } | null>(null)
 const isDetailDialogOpen = ref(false)
 const detailRow = ref<OrderRecapRow | null>(null)
 const isExportSubmitting = ref(false)
@@ -106,6 +106,18 @@ const formatDateOnly = (value?: string | null) => {
   if (!value)
     return '-'
   return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(value))
+}
+
+const formatInclusiveEndDate = (value?: string | null) => {
+  if (!value)
+    return '-'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime()))
+    return '-'
+
+  date.setTime(date.getTime() - 1)
+  return formatDateOnly(date.toISOString())
 }
 
 const formatRecapPeriod = (row?: OrderRecapRow | null) => {
@@ -278,7 +290,7 @@ const fetchRecap = async () => {
     )
     rows.value = res.data
     summary.value = res.summary
-    filterMeta.value = { created_from: res.filter.created_from, created_to_before: res.filter.created_to_before }
+    filterMeta.value = { period_from: res.filter.period_from, period_to_before: res.filter.period_to_before }
   }
   catch (error) {
     console.error('[pages/order-recap.vue]', error)
@@ -365,7 +377,7 @@ onBeforeUnmount(stopExportPolling)
         </VCol>
       </VRow>
       <p v-if="filterMeta" class="text-caption text-medium-emphasis mt-2 mb-0">
-        Rentang: {{ filterMeta.created_from }} - sebelum {{ filterMeta.created_to_before }}
+        Rentang periode: {{ formatDateOnly(filterMeta.period_from) }} - {{ formatInclusiveEndDate(filterMeta.period_to_before) }}
       </p>
       <VAlert
         v-if="activeExport"

@@ -105,6 +105,18 @@ const formatDate = (value?: string | null) => {
   return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(value))
 }
 
+const formatInclusiveEndDate = (value?: string | null) => {
+  if (!value)
+    return '-'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime()))
+    return '-'
+
+  date.setTime(date.getTime() - 1)
+  return formatDate(date.toISOString())
+}
+
 const profitClass = (value?: string | null) => {
   if (value == null || value === '')
     return ''
@@ -285,8 +297,6 @@ onMounted(async () => {
     const def = await contractRecapService.defaultSelection()
     if (def.data) {
       selectedClientId.value = def.data.client_id
-      month.value = def.data.month
-      year.value = def.data.year
     }
 
     if (selectedClientId.value)
@@ -357,14 +367,14 @@ onBeforeUnmount(stopExportPolling)
         <VCol cols="12" sm="6" md="2">
           <VTextField
             v-model="startDate"
-            label="Start Date (Created)"
+            label="Start Jadwal"
             type="date"
           />
         </VCol>
         <VCol cols="12" sm="6" md="2">
           <VTextField
             v-model="endDate"
-            label="End Date (Created)"
+            label="End Jadwal"
             type="date"
           />
         </VCol>
@@ -381,8 +391,8 @@ onBeforeUnmount(stopExportPolling)
           </VBtn>
         </VCol>
       </VRow>
-      <p v-if="recapRow?.filter?.created_from || recapRow?.filter?.created_to_before" class="text-caption text-medium-emphasis mt-2 mb-0">
-        Filter created_at: {{ recapRow?.filter?.created_from || '-' }} - sebelum {{ recapRow?.filter?.created_to_before || '-' }}
+      <p v-if="recapRow?.filter?.scheduled_from || recapRow?.filter?.scheduled_to_before" class="text-caption text-medium-emphasis mt-2 mb-0">
+        Filter jadwal: {{ formatDate(recapRow?.filter?.scheduled_from) }} - {{ formatInclusiveEndDate(recapRow?.filter?.scheduled_to_before) }}
       </p>
       <VAlert
         v-if="activeExport"
@@ -440,6 +450,7 @@ onBeforeUnmount(stopExportPolling)
           <thead>
             <tr>
               <th>Jadwal</th>
+              <th>Client</th>
               <th>Rute Antar Jemput</th>
               <th>Kendaraan</th>
               <th>Status</th>
@@ -452,12 +463,16 @@ onBeforeUnmount(stopExportPolling)
           </thead>
           <tbody>
             <tr v-if="!isLoading && (!recapRow || recapRow.shuttles.length === 0)">
-              <td colspan="9" class="text-center text-medium-emphasis py-8">
+              <td colspan="10" class="text-center text-medium-emphasis py-8">
                 Tidak ada data antar jemput pada client dan periode ini.
               </td>
             </tr>
             <tr v-for="shuttle in recapRow?.shuttles || []" :key="shuttle.id">
               <td>{{ formatDate(shuttle.scheduled_date) }}</td>
+              <td>
+                <div class="font-weight-medium">{{ recapRow?.client_name || '-' }}</div>
+                <div v-if="recapRow?.client_code" class="text-caption text-medium-emphasis">{{ recapRow.client_code }}</div>
+              </td>
               <td>{{ shuttle.route_origin || '-' }} -> {{ shuttle.route_destination || '-' }}</td>
               <td>{{ shuttle.vehicle_plate_number || '-' }} <span class="text-medium-emphasis">{{ shuttle.vehicle_type ? `(${shuttle.vehicle_type})` : '' }}</span></td>
               <td>

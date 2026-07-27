@@ -276,7 +276,7 @@ export class OrderRecapExportService implements OnModuleInit {
       bottom: { style: 'thin' as const, color: { argb: 'FFE5E7EB' } },
       right: { style: 'thin' as const, color: { argb: 'FFE5E7EB' } },
     };
-    const dateRangeText = `${this.formatDateOnly(context.filter.created_from)} s/d ${this.formatDateOnly(this.getInclusiveEndDate(context.filter.created_to_before))}`;
+    const dateRangeText = `${this.formatDateOnly(context.filter.period_from)} s/d ${this.formatDateOnly(this.getInclusiveEndDate(context.filter.period_to_before))}`;
     const generatedAt = new Date();
 
     const titleRow = worksheet.addRow(['REKAP RESERVASI']);
@@ -564,7 +564,7 @@ export class OrderRecapExportService implements OnModuleInit {
 
   private getInclusiveEndDate(endExclusive: string) {
     const end = new Date(endExclusive);
-    end.setUTCDate(end.getUTCDate() - 1);
+    end.setTime(end.getTime() - 1);
     return end;
   }
 
@@ -573,8 +573,12 @@ export class OrderRecapExportService implements OnModuleInit {
     if (Number.isNaN(date.getTime()))
       return '-';
 
-    const pad = (input: number) => String(input).padStart(2, '0');
-    return `${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()}`;
+    return new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(date);
   }
 
   private formatDateTime(value: Date) {
@@ -587,11 +591,26 @@ export class OrderRecapExportService implements OnModuleInit {
     exportJobId: bigint,
     context: ReturnType<OrderService['buildRecapQueryContext']>,
   ) {
-    const start = context.filter.created_from.slice(0, 10);
-    const end = new Date(context.filter.created_to_before);
-    end.setUTCDate(end.getUTCDate() - 1);
+    const start = this.formatFileDateOnly(context.filter.period_from);
+    const end = this.formatFileDateOnly(this.getInclusiveEndDate(context.filter.period_to_before));
 
-    return `order-recap-export-${start}-to-${end.toISOString().slice(0, 10)}-${exportJobId.toString()}.xlsx`;
+    return `order-recap-export-${start}-to-${end}-${exportJobId.toString()}.xlsx`;
+  }
+
+  private formatFileDateOnly(value: string | Date) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime()))
+      return 'invalid-date';
+
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? '00';
+
+    return `${pick('year')}-${pick('month')}-${pick('day')}`;
   }
 
   private buildStoredFilePath(fileName: string) {

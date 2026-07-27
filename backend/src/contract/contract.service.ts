@@ -42,6 +42,7 @@ const CONTRACT_RECAP_MONTH_NAMES = [
   'November',
   'Desember',
 ];
+const JAKARTA_UTC_OFFSET_MINUTES = 7 * 60;
 
 @Injectable()
 export class ContractService {
@@ -590,24 +591,17 @@ export class ContractService {
       });
     }
 
-    const periodStart = new Date(Date.UTC(yearInput, monthInput - 1, 1, 0, 0, 0, 0));
-    const periodEndExclusive = new Date(Date.UTC(yearInput, monthInput, 1, 0, 0, 0, 0));
-    const createdFrom = dateFromInput ? this.parseDateFromInput(dateFromInput) : null;
-    const createdToExclusive = dateToInput ? this.parseDateToExclusiveInput(dateToInput) : null;
+    const periodStart = this.createJakartaDateBoundary(yearInput, monthInput, 1);
+    const periodEndExclusive = this.createJakartaDateBoundary(yearInput, monthInput + 1, 1);
+    const scheduledFrom = dateFromInput ? this.parseDateFromInput(dateFromInput) : periodStart;
+    const scheduledToExclusive = dateToInput ? this.parseDateToExclusiveInput(dateToInput) : periodEndExclusive;
 
-    if (createdFrom && createdToExclusive && createdToExclusive <= createdFrom) {
+    if (scheduledToExclusive <= scheduledFrom) {
       throw new BadRequestException({
         success: false,
-        message: 'Rentang created_at tidak valid: date_to harus lebih besar dari date_from',
+        message: 'Rentang jadwal tidak valid: date_to harus lebih besar dari date_from',
       });
     }
-
-    const createdAtFilter = (createdFrom || createdToExclusive)
-      ? {
-          ...(createdFrom && { gte: createdFrom }),
-          ...(createdToExclusive && { lt: createdToExclusive }),
-        }
-      : undefined;
 
     const contract = await this.prisma.db.contract.findFirst({
       where: {
@@ -615,7 +609,6 @@ export class ContractService {
         contract_month: monthInput,
         contract_year: yearInput,
         deleted_at: null,
-        ...(createdAtFilter && { created_at: createdAtFilter }),
       },
       orderBy: [{ status: 'asc' }, { created_at: 'desc' }],
       select: {
@@ -636,23 +629,20 @@ export class ContractService {
       periodLabel: `${CONTRACT_RECAP_MONTH_NAMES[monthInput - 1]} ${yearInput}`,
       periodStart,
       periodEndExclusive,
-      createdFrom,
-      createdToExclusive,
+      scheduledFrom,
+      scheduledToExclusive,
       shuttleWhere: {
         client_id: clientId,
         deleted_at: null,
         scheduled_date: {
           not: null,
-          gte: periodStart,
-          lt: periodEndExclusive,
+          gte: scheduledFrom,
+          lt: scheduledToExclusive,
         },
-        ...(createdAtFilter && { created_at: createdAtFilter }),
       } satisfies Prisma.ShuttleWhereInput,
       filter: {
-        scheduled_from: periodStart.toISOString(),
-        scheduled_to_before: periodEndExclusive.toISOString(),
-        created_from: createdFrom?.toISOString() ?? null,
-        created_to_before: createdToExclusive?.toISOString() ?? null,
+        scheduled_from: scheduledFrom.toISOString(),
+        scheduled_to_before: scheduledToExclusive.toISOString(),
       },
     };
   }
@@ -751,7 +741,7 @@ export class ContractService {
 
   private parseDateFromInput(raw: string): Date {
     const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
-    const date = dateOnly ? new Date(`${raw}T00:00:00.000Z`) : new Date(raw);
+    const date = dateOnly ? this.parseJakartaDateOnly(raw) : new Date(raw);
 
     if (Number.isNaN(date.getTime())) {
       throw new BadRequestException({
@@ -765,7 +755,7 @@ export class ContractService {
 
   private parseDateToExclusiveInput(raw: string): Date {
     const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
-    const date = dateOnly ? new Date(`${raw}T00:00:00.000Z`) : new Date(raw);
+    const date = dateOnly ? this.parseJakartaDateOnly(raw) : new Date(raw);
 
     if (Number.isNaN(date.getTime())) {
       throw new BadRequestException({
@@ -780,6 +770,15 @@ export class ContractService {
     }
 
     return date;
+  }
+
+  private parseJakartaDateOnly(raw: string) {
+    const [year, month, day] = raw.split('-').map(Number);
+    return this.createJakartaDateBoundary(year, month, day);
+  }
+
+  private createJakartaDateBoundary(year: number, month: number, day: number) {
+    return new Date(Date.UTC(year, month - 1, day, 0, -JAKARTA_UTC_OFFSET_MINUTES, 0, 0));
   }
 
   private serializeContract(contract: any) {

@@ -175,8 +175,8 @@ export type OrderRecapResponse = {
   filter: {
     month: number
     year: number
-    created_from: string
-    created_to_before: string
+    period_from: string
+    period_to_before: string
   }
 }
 

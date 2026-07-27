@@ -270,7 +270,10 @@ export class ContractRecapExportService implements OnModuleInit {
     };
     const contractValue = this.toNumber(context.contract?.contract_value?.toString() ?? null);
     const periodText = context.periodLabel;
-    const createdFilterText = this.buildCreatedFilterText(context.filter.created_from, context.filter.created_to_before);
+    const scheduleFilterText = this.buildScheduleFilterText(
+      context.filter.scheduled_from,
+      context.filter.scheduled_to_before,
+    );
     const generatedAt = new Date();
 
     const titleRow = worksheet.addRow(['REKAP AJK']);
@@ -288,7 +291,7 @@ export class ContractRecapExportService implements OnModuleInit {
     clientRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
     clientRow.commit();
 
-    const periodRow = worksheet.addRow([`Periode: ${periodText} | Created: ${createdFilterText}`]);
+    const periodRow = worksheet.addRow([`Periode: ${periodText} | Jadwal: ${scheduleFilterText}`]);
     worksheet.mergeCells('A3:K3');
     periodRow.getCell(1).font = { color: { argb: 'FF374151' } };
     periodRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
@@ -530,7 +533,7 @@ export class ContractRecapExportService implements OnModuleInit {
     return Number.isFinite(numeric) ? numeric : 0;
   }
 
-  private buildCreatedFilterText(from?: string | null, toBefore?: string | null) {
+  private buildScheduleFilterText(from?: string | null, toBefore?: string | null) {
     if (!from && !toBefore)
       return '-';
 
@@ -539,7 +542,7 @@ export class ContractRecapExportService implements OnModuleInit {
 
   private getInclusiveEndDate(endExclusive: string) {
     const end = new Date(endExclusive);
-    end.setUTCDate(end.getUTCDate() - 1);
+    end.setTime(end.getTime() - 1);
     return end;
   }
 
@@ -548,8 +551,12 @@ export class ContractRecapExportService implements OnModuleInit {
     if (Number.isNaN(date.getTime()))
       return '-';
 
-    const pad = (input: number) => String(input).padStart(2, '0');
-    return `${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()}`;
+    return new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(date);
   }
 
   private formatDateTime(value: Date) {

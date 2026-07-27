@@ -327,8 +327,6 @@ export type ContractRecapRow = {
   filter: {
     scheduled_from: string
     scheduled_to_before: string
-    created_from?: string | null
-    created_to_before?: string | null
   }
 }
 
