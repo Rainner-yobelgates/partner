@@ -292,7 +292,7 @@ onMounted(async () => {
   <VRow>
     <VCol cols="12">
       <VCard>
-        <VCardItem title="Overview Master Data" />
+        <VCardItem title="Overview Data Utama" />
         <VCardText>
           <VRow>
             <VCol cols="12" sm="6" md="4" lg="2">
@@ -335,7 +335,7 @@ onMounted(async () => {
         <VCardItem title="Filter Tahun">
           <template #subtitle>
             <span class="text-body-2 text-medium-emphasis">
-              Berlaku untuk Report Tahunan, Finansial Klien, Rekap Reservasi, dan Total Keuangan.
+              Berlaku untuk Laporan Tahunan, Finansial Klien, Rekap Reservasi, dan Total Keuangan.
             </span>
           </template>
         </VCardItem>
@@ -362,10 +362,10 @@ onMounted(async () => {
 
     <VCol cols="12" md="7">
       <VCard>
-        <VCardItem title="Filter Client (Khusus Klien)">
+        <VCardItem title="Filter Klien (Khusus Klien)">
           <template #subtitle>
             <span class="text-body-2 text-medium-emphasis">
-              Hanya memengaruhi Report Tahunan, Finansial Klien, dan porsi klien di Total Keuangan.
+              Hanya memengaruhi Laporan Tahunan, Finansial Klien, dan porsi klien di Total Keuangan.
             </span>
           </template>
         </VCardItem>
@@ -397,7 +397,7 @@ onMounted(async () => {
 
     <VCol cols="12">
       <VCard>
-        <VCardItem title="Report Tahunan">
+        <VCardItem title="Laporan Tahunan">
           <template #subtitle>
             <span class="text-body-2 text-medium-emphasis">
               Tahun {{ selectedYear }} - {{ selectedClientName }}
