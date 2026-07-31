@@ -122,7 +122,7 @@ export class OrderService {
     if (endExclusive <= start) {
       throw new BadRequestException({
         success: false,
-        message: 'Rentang tanggal tidak valid: date_to harus lebih besar dari date_from',
+        message: 'Rentang tanggal tidak valid: date to harus lebih besar dari date from',
       });
     }
 
@@ -223,7 +223,7 @@ export class OrderService {
     if (Number.isNaN(date.getTime())) {
       throw new BadRequestException({
         success: false,
-        message: 'date_from tidak valid',
+        message: 'date from tidak valid',
       });
     }
 
@@ -237,7 +237,7 @@ export class OrderService {
     if (Number.isNaN(date.getTime())) {
       throw new BadRequestException({
         success: false,
-        message: 'date_to tidak valid',
+        message: 'date to tidak valid',
       });
     }
 
